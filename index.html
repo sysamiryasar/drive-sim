@@ -3,130 +3,213 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Realm Craft — Prototype 0.5 "Realism"</title>
+<title>Realm Drive — Driving Simulator</title>
 <style>
-  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0e14; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #fff; }
   canvas { display: block; }
-  #hud {
-    position: fixed; top: 14px; left: 14px; z-index: 10;
-    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
-    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 10px; padding: 12px 16px; min-width: 235px;
-    backdrop-filter: blur(6px); user-select: none;
+
+  /* ======================== HOME SCREEN ======================== */
+  #homeScreen {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0a0e14 0%, #1a1e2a 40%, #0d1520 100%);
   }
-  #hud h1 { font-size: 15px; margin: 0 0 2px 0; letter-spacing: 1px; }
-  #hud .tag { font-size: 10px; color: #8fd3ff; margin-bottom: 8px; letter-spacing: 0.5px; }
-  #hud .row { font-size: 13px; margin: 3px 0; display: flex; justify-content: space-between; gap: 16px; }
-  #hud .row b { color: #ffd166; font-weight: 600; }
-  #mode { color: #7CFC9A; font-weight: 700; }
-  #controls {
-    position: fixed; bottom: 14px; left: 14px; z-index: 10;
-    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; color: #cfd8e3;
-    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 10px; padding: 10px 14px; line-height: 1.55;
-    backdrop-filter: blur(6px); user-select: none;
+  #homeScreen.hidden { display: none; }
+  .home-title {
+    font-size: 52px; font-weight: 800; letter-spacing: 4px; margin-bottom: 4px;
+    background: linear-gradient(135deg, #4fc3f7, #81d4fa, #b3e5fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: none;
   }
-  #controls b { color: #fff; }
-  #speedo {
-    position: fixed; bottom: 16px; right: 16px; z-index: 10;
-    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; text-align: right;
-    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 12px; padding: 10px 18px 8px; user-select: none;
-    backdrop-filter: blur(6px);
+  .home-sub {
+    font-size: 16px; color: #6b8299; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 40px;
   }
-  #speedNum { font-size: 42px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-  #speedo .unit { font-size: 12px; color: #9fb2c8; letter-spacing: 1px; }
-  #minimap {
-    position: fixed; top: 14px; right: 14px; z-index: 10;
-    border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(8, 12, 22, 0.8);
+  .home-cards {
+    display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center;
   }
-  #palette {
-    position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%); z-index: 10;
-    display: none; gap: 8px; font-family: 'Segoe UI', system-ui, sans-serif;
+  .car-card {
+    width: 130px; padding: 16px 12px; border-radius: 12px; cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.08);
+    text-align: center; transition: all 0.2s;
   }
-  #palette .slot {
-    width: 46px; height: 46px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.25);
-    display: flex; align-items: flex-end; justify-content: center;
-    font-size: 10px; color: #fff; padding-bottom: 3px; box-sizing: border-box;
-    text-shadow: 0 1px 2px #000;
+  .car-card:hover { border-color: rgba(79,195,247,0.5); background: rgba(79,195,247,0.08); transform: translateY(-3px); }
+  .car-card.selected { border-color: #4fc3f7; background: rgba(79,195,247,0.15); box-shadow: 0 0 20px rgba(79,195,247,0.2); }
+  .car-card .icon { font-size: 36px; margin-bottom: 6px; }
+  .car-card .name { font-size: 13px; font-weight: 600; color: #e0e8f0; }
+  .car-card .stats { font-size: 10px; color: #6b8299; margin-top: 4px; line-height: 1.5; }
+  .home-start {
+    padding: 14px 48px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    background: linear-gradient(135deg, #4fc3f7, #0288d1); color: #fff;
+    transition: all 0.2s; box-shadow: 0 4px 20px rgba(79,195,247,0.3);
   }
-  #palette .slot.sel { border-color: #ffd166; box-shadow: 0 0 12px rgba(255,209,102,0.6); }
-  #crosshair {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10;
-    color: #fff; font-size: 22px; font-weight: 300; display: none;
-    text-shadow: 0 0 4px #000; pointer-events: none;
+  .home-start:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(79,195,247,0.45); }
+  .home-controls {
+    margin-top: 28px; padding: 16px 24px; border-radius: 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px; color: #7a92a8; line-height: 1.8; max-width: 580px; text-align: center;
   }
-  #toast {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 11;
-    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #fff;
-    background: rgba(8, 12, 22, 0.85); border-radius: 8px; padding: 8px 16px;
-    opacity: 0; transition: opacity 0.4s; pointer-events: none;
+  .home-controls b { color: #b0c4d8; }
+  .home-controls .row { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
+  .home-controls .item { display: flex; align-items: center; gap: 6px; }
+  .home-controls kbd {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    font-size: 11px; font-family: monospace; color: #c0d0e0;
   }
-  #bigmsg {
-    position: fixed; top: 22%; left: 50%; transform: translateX(-50%); z-index: 12;
-    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 26px; font-weight: 700; color: #fff;
-    background: rgba(8, 12, 22, 0.85); border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 12px; padding: 14px 28px; text-align: center;
-    opacity: 0; transition: opacity 0.35s; pointer-events: none; white-space: nowrap;
+
+  /* ======================== DASHBOARD / HUD ======================== */
+  #dashboard {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    display: none; height: 140px;
+    background: linear-gradient(0deg, rgba(10,14,20,0.95) 0%, rgba(10,14,20,0.8) 80%, transparent 100%);
+    font-family: 'Segoe UI', system-ui, sans-serif;
   }
-  #hitflash {
-    position: fixed; inset: 0; z-index: 9; pointer-events: none;
-    background: radial-gradient(ellipse at center, transparent 40%, rgba(255,30,30,0.55) 100%);
-    opacity: 0; transition: opacity 0.15s;
+  #dashboard.active { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; gap: 0; }
+  .dash-panel {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding: 0 18px; height: 100%;
   }
-  #healthwrap {
-    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 10;
-    width: 260px; height: 16px; display: none;
-    background: rgba(8,12,22,0.8); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+  .dash-gauge {
+    position: relative; width: 120px; height: 120px;
+  }
+  .dash-gauge canvas { width: 120px; height: 120px; }
+  .dash-gauge-label {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    font-size: 26px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums;
+  }
+  .dash-gauge-unit {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; color: #6b8299; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .dash-indicators {
+    display: flex; gap: 12px; align-items: center; padding: 0 20px;
+  }
+  .dash-ind {
+    width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .dash-ind.on { background: #4fc3f7; border-color: #4fc3f7; box-shadow: 0 0 8px rgba(79,195,247,0.6); }
+  .dash-ind.warn { background: #ffa726; border-color: #ffa726; box-shadow: 0 0 8px rgba(255,167,38,0.6); }
+  .dash-ind.danger { background: #ef5350; border-color: #ef5350; box-shadow: 0 0 8px rgba(239,83,80,0.6); }
+  .dash-info {
+    display: flex; flex-direction: column; gap: 2px; padding: 0 14px;
+    font-size: 11px; color: #7a92a8;
+  }
+  .dash-info .val { color: #e0e8f0; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dash-fuel {
+    display: flex; align-items: center; gap: 6px; padding: 0 14px;
+  }
+  .dash-fuel-bar {
+    width: 80px; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1);
     overflow: hidden;
   }
-  #healthbar { height: 100%; width: 100%; background: linear-gradient(90deg, #46d46a, #7CFC9A); transition: width 0.15s; }
-  #alivewrap {
-    position: fixed; top: 196px; right: 14px; z-index: 10; display: none;
-    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; text-align: center;
-    background: rgba(8, 12, 22, 0.8); border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 10px; padding: 8px 18px;
+  .dash-fuel-fill {
+    height: 100%; border-radius: 4px; background: linear-gradient(90deg, #4fc3f7, #4caf50);
+    transition: width 0.3s;
   }
-  #alive { font-size: 26px; font-weight: 700; color: #ff9a6b; }
-  #alivewrap .lbl { font-size: 10px; color: #9fb2c8; letter-spacing: 1px; }
-  #garage {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 15;
-    display: none; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
-    background: rgba(8, 12, 22, 0.92); border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 14px; padding: 18px 26px; min-width: 320px; max-height: 80vh; overflow-y: auto;
-  }
-  #garage h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 1px; }
-  #garage .grow { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-  #garage .gname { width: 90px; font-size: 13px; color: #cfd8e3; }
-  #garage .swatch {
-    width: 30px; height: 30px; border-radius: 6px; cursor: pointer;
-    border: 2px solid rgba(255,255,255,0.3);
-  }
-  #garage .swatch:hover { border-color: #ffd166; transform: scale(1.1); }
-  #garage .ghint { font-size: 11px; color: #8fa2b8; margin-top: 10px; }
 
+  /* ======================== HUD OVERLAY ======================== */
+  #hudOverlay {
+    position: fixed; top: 14px; left: 14px; z-index: 10;
+    display: none;
+    font-size: 12px; color: #c0d0e0;
+    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 10px 14px; min-width: 180px;
+    backdrop-filter: blur(6px); user-select: none;
+  }
+  #hudOverlay.active { display: block; }
+  #hudOverlay .row { margin: 2px 0; display: flex; justify-content: space-between; gap: 12px; }
+  #hudOverlay b { color: #ffd166; font-weight: 600; }
+
+  /* ======================== MINIMAP ======================== */
+  #minimap {
+    position: fixed; top: 14px; right: 14px; z-index: 10; display: none;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(8, 12, 22, 0.85);
+  }
+  #minimap.active { display: block; }
+
+  /* ======================== TOAST ======================== */
+  #toast {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 11;
+    font-size: 13px; color: #fff;
+    background: rgba(8, 12, 22, 0.88); border-radius: 8px; padding: 8px 18px;
+    opacity: 0; transition: opacity 0.4s; pointer-events: none;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* ======================== GUIDANCE ======================== */
+  #guidance {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 12;
+    display: none; font-size: 18px; font-weight: 600; color: #fff;
+    background: rgba(8, 12, 22, 0.9); border: 1px solid rgba(79,195,247,0.3);
+    border-radius: 12px; padding: 16px 28px; text-align: center;
+    pointer-events: none; white-space: nowrap;
+  }
+  #guidance.active { display: block; animation: guidePulse 2s ease-in-out infinite; }
+  @keyframes guidePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+  /* ======================== SPEED LIMIT SIGN ======================== */
+  #speedLimit {
+    position: fixed; top: 50%; right: 24px; transform: translateY(-50%); z-index: 10;
+    display: none; width: 56px; height: 56px; border-radius: 50%;
+    background: #fff; border: 4px solid #d32f2f;
+    font-size: 20px; font-weight: 800; color: #222;
+    text-align: center; line-height: 48px;
+  }
+  #speedLimit.active { display: block; }
+  #speedLimit .lbl {
+    position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; color: #7a92a8; letter-spacing: 1px; white-space: nowrap;
+  }
+
+  /* ======================== TRAFFIC LIGHT HUD ======================== */
+  #trafficLightHud {
+    position: fixed; bottom: 156px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: none; padding: 6px 14px; border-radius: 8px;
+    background: rgba(8,12,22,0.85); border: 1px solid rgba(255,255,255,0.12);
+    font-size: 12px; color: #c0d0e0; text-align: center;
+  }
+  #trafficLightHud.active { display: block; }
+  .tl-dot {
+    display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 3px;
+    background: rgba(255,255,255,0.1); vertical-align: middle;
+  }
+  .tl-dot.red { background: #ef5350; box-shadow: 0 0 6px rgba(239,83,80,0.6); }
+  .tl-dot.yellow { background: #ffa726; box-shadow: 0 0 6px rgba(255,167,38,0.6); }
+  .tl-dot.green { background: #66bb6a; box-shadow: 0 0 6px rgba(102,187,106,0.6); }
+
+  /* ======================== PAUSE ======================== */
+  #pauseOverlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    background: rgba(10,14,20,0.85); backdrop-filter: blur(4px);
+  }
+  #pauseOverlay.active { display: flex; }
+  #pauseOverlay h2 { font-size: 32px; font-weight: 700; margin-bottom: 16px; letter-spacing: 2px; }
+  #pauseOverlay .hint { font-size: 13px; color: #7a92a8; }
+
+  /* ======================== TOUCH CONTROLS ======================== */
   #touch-ui { display: none; }
   body.touch-device #touch-ui { display: block; }
-  body.touch-device #controls { display: none; }
   #joy-area {
     position: fixed; bottom: 30px; left: 24px; z-index: 20;
     width: 140px; height: 140px; touch-action: none;
   }
   #joy-base {
     width: 120px; height: 120px; border-radius: 50%;
-    background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.18);
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   }
   #joy-knob {
     width: 48px; height: 48px; border-radius: 50%;
-    background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.45);
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    transition: none;
   }
   #look-area {
-    position: fixed; top: 0; right: 0; bottom: 200px; width: 50%; z-index: 18;
-    touch-action: none;
+    position: fixed; top: 0; right: 0; bottom: 200px; width: 50%; z-index: 18; touch-action: none;
   }
   #touch-btns {
     position: fixed; bottom: 20px; right: 16px; z-index: 20;
@@ -135,65 +218,146 @@
   }
   .tbtn {
     width: 52px; height: 52px; border-radius: 50%;
-    background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.22);
     color: #fff; font-size: 18px; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
     user-select: none; -webkit-user-select: none;
     font-family: 'Segoe UI', system-ui, sans-serif;
-    text-shadow: 0 1px 3px #000;
   }
-  .tbtn.active {
-    background: rgba(255,209,102,0.35); border-color: #ffd166;
-    transform: scale(0.92);
-  }
-  #tb-fire { background: rgba(255,60,40,0.2); border-color: rgba(255,80,60,0.5); }
-  #tb-brake { background: rgba(255,180,40,0.15); }
-  #tb-jump { background: rgba(60,200,120,0.15); }
-  #tb-fullscreen { width: 40px; height: 40px; font-size: 20px; opacity: 0.6; }
+  .tbtn.active { background: rgba(79,195,247,0.3); border-color: #4fc3f7; transform: scale(0.92); }
+  #tb-brake { background: rgba(255,80,40,0.15); border-color: rgba(255,80,60,0.4); }
+  #tb-camera { background: rgba(79,195,247,0.1); }
+  #tb-horn { background: rgba(255,200,40,0.15); }
+  #tb-fullscreen { width: 40px; height: 40px; font-size: 20px; opacity: 0.5; }
 
   @media (max-width: 600px) {
-    #hud { transform: scale(0.82); transform-origin: top left; padding: 8px 12px; min-width: 180px; }
-    #hud h1 { font-size: 12px; }
-    #hud .row { font-size: 11px; }
-    #speedo { transform: scale(0.75); transform-origin: bottom right; }
-    #minimap { width: 110px; height: 110px; }
-    #palette .slot { width: 36px; height: 36px; font-size: 8px; }
-    #bigmsg { font-size: 18px; padding: 10px 18px; }
-  }
-  @media (max-width: 400px) {
-    #hud { transform: scale(0.7); }
-    #minimap { width: 85px; height: 85px; }
+    .home-title { font-size: 28px; }
+    .home-sub { font-size: 11px; letter-spacing: 3px; }
+    .car-card { width: 100px; padding: 10px 8px; }
+    .car-card .icon { font-size: 26px; }
+    .car-card .name { font-size: 11px; }
+    .home-controls { font-size: 10px; padding: 10px 14px; }
+    .dash-gauge { width: 90px; height: 90px; }
+    .dash-gauge canvas { width: 90px; height: 90px; }
+    .dash-gauge-label { font-size: 20px; bottom: 16px; }
   }
 </style>
 </head>
 <body>
-<div id="hud">
-  <h1>REALM CRAFT</h1>
-  <div class="tag">PROTOTYPE 0.5 — "REALISM"</div>
-  <div class="row"><span>Mode</span><span id="mode">DRIVE</span></div>
-  <div class="row"><span>Time</span><b id="clock">09:00</b></div>
-  <div class="row"><span>Weather</span><b id="weather">Clear</b></div>
-  <div class="row"><span>Biome</span><b id="biome">Urban</b></div>
-  <div class="row"><span>Zone</span><b id="zone">Surface</b></div>
-  <div class="row"><span>Traffic</span><b id="traffic">0</b></div>
-  <div class="row"><span>Blocks placed</span><b id="blocks">0</b></div>
+
+<!-- ======================== HOME SCREEN ======================== -->
+<div id="homeScreen">
+  <div class="home-title">REALM DRIVE</div>
+  <div class="home-sub">Driving Simulator</div>
+  <div class="home-cards" id="carCards"></div>
+  <button class="home-start" id="startBtn">START DRIVING</button>
+  <div class="home-controls">
+    <div class="row">
+      <div class="item"><kbd>W</kbd> Accelerate</div>
+      <div class="item"><kbd>S</kbd> Brake / Reverse</div>
+      <div class="item"><kbd>A</kbd><kbd>D</kbd> Steer</div>
+      <div class="item"><kbd>Space</kbd> Handbrake</div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="item"><kbd>C</kbd> Camera</div>
+      <div class="item"><kbd>F</kbd> Headlights</div>
+      <div class="item"><kbd>H</kbd> Horn</div>
+      <div class="item"><kbd>R</kbd> Reset</div>
+      <div class="item"><kbd>M</kbd> Sound</div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="item"><kbd>Esc</kbd> Pause</div>
+      <div class="item"><kbd>Shift</kbd> Nitro</div>
+      <div class="item"><kbd>B</kbd> Build Mode</div>
+    </div>
+  </div>
 </div>
-<div id="controls">
-  <b>W A S D</b> move &middot; <b>Space</b> brake / jump &middot; <b>Shift</b> sprint &middot; <b>F</b> enter/exit car &middot; <b>C</b> cockpit view<br>
-  <b>B</b> build mode (LMB place &middot; RMB break &middot; 1-7 material) &middot; <b>G</b> battle royale &middot; <b>M</b> sound &middot; <b>R</b> reset car<br>
-  8 vehicles: Sports, Muscle, Off-Roader, Truck, SUV, Van, Motorcycle, Police &middot; Parkour: double-jump &amp; wall-jump<br>
-  Dynamic weather with snow accumulation &amp; rain puddles &middot; Aurora borealis at night &middot; Find glowing portals to other dimensions
+
+<!-- ======================== PAUSE ======================== -->
+<div id="pauseOverlay">
+  <h2>PAUSED</h2>
+  <div class="hint">Press <kbd style="padding:3px 8px;border-radius:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);font-family:monospace">Esc</kbd> to resume</div>
 </div>
-<div id="speedo"><div id="speedNum">0</div><div class="unit">KM/H</div></div>
+
+<!-- ======================== HUD OVERLAY ======================== -->
+<div id="hudOverlay">
+  <div class="row"><span>Zone</span><b id="hudZone">City Center</b></div>
+  <div class="row"><span>Weather</span><b id="hudWeather">Clear</b></div>
+  <div class="row"><span>Time</span><b id="hudClock">09:00</b></div>
+  <div class="row"><span>Biome</span><b id="hudBiome">Urban</b></div>
+</div>
+
+<!-- ======================== DASHBOARD ======================== -->
+<div id="dashboard">
+  <!-- Speed Gauge -->
+  <div class="dash-panel">
+    <div class="dash-gauge" id="speedGauge">
+      <canvas id="speedCanvas" width="240" height="240"></canvas>
+      <div class="dash-gauge-label" id="speedNum">0</div>
+      <div class="dash-gauge-unit">km/h</div>
+    </div>
+  </div>
+
+  <!-- Center indicators -->
+  <div class="dash-panel" style="gap:6px;">
+    <div class="dash-indicators">
+      <div class="dash-ind" id="indLeft" title="Left Turn Signal"></div>
+      <div class="dash-ind" id="indHigh" title="High Beam"></div>
+      <div class="dash-ind" id="indRight" title="Right Turn Signal"></div>
+    </div>
+    <div class="dash-info">
+      <div>Gear: <span class="val" id="dashGear">N</span></div>
+      <div>RPM: <span class="val" id="dashRPM">0</span></div>
+    </div>
+    <div class="dash-fuel">
+      <span style="font-size:12px;">⛽</span>
+      <div class="dash-fuel-bar"><div class="dash-fuel-fill" id="fuelFill" style="width:100%"></div></div>
+      <span class="val" id="fuelPct" style="font-size:11px;">100%</span>
+    </div>
+  </div>
+
+  <!-- Tachometer -->
+  <div class="dash-panel">
+    <div class="dash-gauge" id="tachGauge">
+      <canvas id="tachCanvas" width="240" height="240"></canvas>
+      <div class="dash-gauge-label" id="tachNum">0</div>
+      <div class="dash-gauge-unit">RPM x1000</div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== MINIMAP ======================== -->
 <canvas id="minimap" width="170" height="170"></canvas>
-<div id="palette"></div>
-<div id="crosshair">+</div>
+
+<!-- ======================== SPEED LIMIT SIGN ======================== -->
+<div id="speedLimit">50<div class="lbl">SPEED LIMIT</div></div>
+
+<!-- ======================== TRAFFIC LIGHT HUD ======================== -->
+<div id="trafficLightHud">
+  <span class="tl-dot" id="tlRed"></span>
+  <span class="tl-dot" id="tlYellow"></span>
+  <span class="tl-dot" id="tlGreen"></span>
+  <span style="margin-left:8px;" id="tlDist"></span>
+</div>
+
+<!-- ======================== GUIDANCE ======================== -->
+<div id="guidance"></div>
+
+<!-- ======================== TOAST ======================== -->
 <div id="toast"></div>
-<div id="bigmsg"></div>
-<div id="hitflash"></div>
-<div id="healthwrap"><div id="healthbar"></div></div>
-<div id="alivewrap"><div id="alive">13</div><div class="lbl">ALIVE</div></div>
-<div id="garage"></div>
+
+<!-- ======================== TOUCH CONTROLS ======================== -->
+<div id="touch-ui">
+  <div id="joy-area"><div id="joy-base"><div id="joy-knob"></div></div></div>
+  <div id="look-area"></div>
+  <div id="touch-btns">
+    <div class="tbtn" id="tb-brake" data-action="brake" data-hold="true">B</div>
+    <div class="tbtn" id="tb-horn" data-action="horn" data-hold="false">H</div>
+    <div class="tbtn" id="tb-camera" data-action="camera" data-hold="false">C</div>
+    <div class="tbtn" id="tb-reset" data-action="reset" data-hold="false">R</div>
+    <div class="tbtn" id="tb-fullscreen" data-action="fullscreen" data-hold="false">⛶</div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="world.js"></script>

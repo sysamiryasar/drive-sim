@@ -1,7 +1,6 @@
 'use strict';
 // ============================================================
-// entities.js — player vehicles, cockpit, traffic AI,
-// pedestrians, on-foot character, battle-royale bots
+// entities.js — player vehicles, traffic AI, pedestrians
 // ============================================================
 
 const headLightMat = new THREE.MeshLambertMaterial({
@@ -37,33 +36,28 @@ function buildMotorcycleWheels(group, r) {
   geo.rotateZ(Math.PI / 2);
   const mat = standard(0x17191e, 0.9, 0.1);
   const wheels = [], fronts = [];
-  const front = new THREE.Mesh(geo, mat);
-  front.castShadow = true;
   const fp = new THREE.Group();
   fp.position.set(0, r, 1.05);
-  fp.add(front);
+  const fw = new THREE.Mesh(geo, mat); fw.castShadow = true; fp.add(fw);
   group.add(fp);
-  const rear = new THREE.Mesh(geo, mat);
-  rear.castShadow = true;
   const rp = new THREE.Group();
   rp.position.set(0, r, -1.05);
-  rp.add(rear);
+  const rw = new THREE.Mesh(geo, mat); rw.castShadow = true; rp.add(rw);
   group.add(rp);
-  wheels.push(front, rear);
+  wheels.push(fw, rw);
   fronts.push(fp);
   return { wheels, fronts };
 }
 
-// ---------- Player vehicles ----------
 const VEHICLES = {
-  sports:   { name: 'Sports',     accel: 19, maxSpeed: 50, grip: 9,   turn: 1.55, wheelR: 0.4,  offroadPenalty: 0.4, weight: 1.0 },
-  muscle:   { name: 'Muscle',     accel: 23, maxSpeed: 44, grip: 6.5, turn: 1.45, wheelR: 0.42, offroadPenalty: 0.4, weight: 1.15 },
-  offroad:  { name: 'Off-Roader', accel: 14, maxSpeed: 38, grip: 10,  turn: 1.35, wheelR: 0.52, offroadPenalty: 0.05, weight: 1.2 },
-  truck:    { name: 'Truck',      accel: 11, maxSpeed: 34, grip: 7.5, turn: 1.1,  wheelR: 0.55, offroadPenalty: 0.15, weight: 1.6 },
-  suv:      { name: 'SUV',        accel: 16, maxSpeed: 42, grip: 8.5, turn: 1.3,  wheelR: 0.48, offroadPenalty: 0.2,  weight: 1.3 },
-  van:      { name: 'Van',        accel: 13, maxSpeed: 36, grip: 8,   turn: 1.2,  wheelR: 0.44, offroadPenalty: 0.25, weight: 1.4 },
-  motorcycle: { name: 'Motorcycle', accel: 22, maxSpeed: 58, grip: 7, turn: 1.8,  wheelR: 0.36, offroadPenalty: 0.35, weight: 0.5 },
-  police:   { name: 'Police',     accel: 20, maxSpeed: 48, grip: 9.5, turn: 1.5,  wheelR: 0.42, offroadPenalty: 0.35, weight: 1.1 },
+  sports:    { name: 'Sports',      accel: 19, maxSpeed: 50, grip: 9,   turn: 1.55, wheelR: 0.4,  offroadPenalty: 0.4, weight: 1.0,  icon: '🏎️' },
+  muscle:    { name: 'Muscle',      accel: 23, maxSpeed: 44, grip: 6.5, turn: 1.45, wheelR: 0.42, offroadPenalty: 0.4, weight: 1.15, icon: '🚗' },
+  offroad:   { name: 'Off-Roader',  accel: 14, maxSpeed: 38, grip: 10,  turn: 1.35, wheelR: 0.52, offroadPenalty: 0.05, weight: 1.2, icon: '🚙' },
+  truck:     { name: 'Truck',       accel: 11, maxSpeed: 34, grip: 7.5, turn: 1.1,  wheelR: 0.55, offroadPenalty: 0.15, weight: 1.6, icon: '🛻' },
+  suv:       { name: 'SUV',         accel: 16, maxSpeed: 42, grip: 8.5, turn: 1.3,  wheelR: 0.48, offroadPenalty: 0.2,  weight: 1.3, icon: '🚙' },
+  van:       { name: 'Van',         accel: 13, maxSpeed: 36, grip: 8,   turn: 1.2,  wheelR: 0.44, offroadPenalty: 0.25, weight: 1.4, icon: '🚐' },
+  motorcycle:{ name: 'Motorcycle',  accel: 22, maxSpeed: 58, grip: 7,   turn: 1.8,  wheelR: 0.36, offroadPenalty: 0.35, weight: 0.5, icon: '🏍️' },
+  police:    { name: 'Police',      accel: 20, maxSpeed: 48, grip: 9.5, turn: 1.5,  wheelR: 0.42, offroadPenalty: 0.35, weight: 1.1, icon: '🚔' },
 };
 
 function buildPlayerCar(styleKey, colorHex) {
@@ -84,16 +78,15 @@ function buildPlayerCar(styleKey, colorHex) {
     seat.position.set(0, 0.98, -0.2);
     const fender = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.4), darkMat);
     fender.position.set(0, 0.55, 1.0);
-    const headlight = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), headLightMat);
-    headlight.position.set(0, 0.85, 1.25);
-    car.add(body, tank, seat, fender, headlight);
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), headLightMat);
+    hl.position.set(0, 0.85, 1.25);
+    car.add(body, tank, seat, fender, hl);
     const wp = buildMotorcycleWheels(car, spec.wheelR);
     parts.wheels = wp.wheels; parts.fronts = wp.fronts;
     const dash = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.15, 0.3), darkMat);
     dash.position.set(0, 1.05, 0.6);
     const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 6, 14), darkMat);
-    wheel.position.set(0, 1.15, 0.45);
-    wheel.rotation.x = -0.6;
+    wheel.position.set(0, 1.15, 0.45); wheel.rotation.x = -0.6;
     car.add(dash, wheel);
     parts.steeringWheel = wheel;
   } else if (styleKey === 'truck') {
@@ -103,13 +96,9 @@ function buildPlayerCar(styleKey, colorHex) {
     cabin.position.set(0, 1.9, -0.3); cabin.castShadow = true;
     const bed = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.2, 3.2), darkMat);
     bed.position.set(0, 0.85, -2.2);
-    const bedSide = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 3.2), darkMat);
-    bedSide.position.set(1.15, 1.15, -2.2);
-    const bedSide2 = bedSide.clone();
-    bedSide2.position.x = -1.15;
     const bumper = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.22, 0.2), chromeMat);
     bumper.position.set(0, 0.7, 2.3);
-    car.add(cab, cabin, bed, bedSide, bedSide2, bumper);
+    car.add(cab, cabin, bed, bumper);
     const wp = buildWheels(car, 1.2, 1.6, -1.8, spec.wheelR);
     parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   } else if (styleKey === 'suv') {
@@ -119,11 +108,7 @@ function buildPlayerCar(styleKey, colorHex) {
     cabin.position.set(0, 1.55, -0.3); cabin.castShadow = true;
     const rack = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 1.2), darkMat);
     rack.position.set(0, 1.92, -0.3);
-    const bullbar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.25, 0.15), chromeMat);
-    bullbar.position.set(0, 0.85, 2.2);
-    const step = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.35), darkMat);
-    step.position.set(0, 0.52, 0);
-    car.add(body, cabin, rack, bullbar, step);
+    car.add(body, cabin, rack);
     const wp = buildWheels(car, 1.08, 1.5, -1.5, spec.wheelR);
     parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   } else if (styleKey === 'van') {
@@ -131,11 +116,7 @@ function buildPlayerCar(styleKey, colorHex) {
     body.position.y = 1.15; body.castShadow = true;
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.5, 1.3), glassMat);
     cabin.position.set(0, 1.9, 1.2); cabin.castShadow = true;
-    const rear = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 0.12), darkMat);
-    rear.position.set(0, 1.2, -2.45);
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.15, 4.82), standard(0xdddddd, 0.5, 0.1));
-    stripe.position.set(0, 1.15, 0);
-    car.add(body, cabin, rear, stripe);
+    car.add(body, cabin);
     const wp = buildWheels(car, 1.02, 1.6, -1.6, spec.wheelR);
     parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   } else if (styleKey === 'police') {
@@ -143,10 +124,6 @@ function buildPlayerCar(styleKey, colorHex) {
     body.position.y = 0.68; body.castShadow = true;
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.48, 2.0), glassMat);
     cabin.position.set(0, 1.08, -0.3); cabin.castShadow = true;
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.22, 1.4), standard(0x1a1a2e, 0.3, 0.6));
-    hood.position.set(0, 0.88, 1.35);
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 0.5), darkMat);
-    wing.position.set(0, 1.08, -2.15);
     const bar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 0.25), standard(0x2244aa, 0.4, 0.3));
     bar.position.set(0, 1.32, -0.1);
     const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshLambertMaterial({ color: srgb(0x2244ff), emissive: srgb(0x2244ff), emissiveIntensity: 0 }));
@@ -155,61 +132,48 @@ function buildPlayerCar(styleKey, colorHex) {
     lightR.position.set(0.65, 1.42, -0.1);
     const pushbar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.15), chromeMat);
     pushbar.position.set(0, 0.72, 2.3);
-    car.add(body, cabin, hood, wing, bar, lightL, lightR, pushbar);
+    car.add(body, cabin, bar, lightL, lightR, pushbar);
     const wp = buildWheels(car, 1.02, 1.5, -1.5, spec.wheelR);
     parts.wheels = wp.wheels; parts.fronts = wp.fronts;
-    parts.policeLightL = lightL;
-    parts.policeLightR = lightR;
+    parts.policeLightL = lightL; parts.policeLightR = lightR;
   } else if (styleKey === 'offroad') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.75, 4.3), bodyMat);
     body.position.y = 0.95; body.castShadow = true;
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.6, 2.2), glassMat);
     cabin.position.set(0, 1.55, -0.2); cabin.castShadow = true;
-    const bull = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.3, 0.25), darkMat);
-    bull.position.set(0, 0.85, 2.25);
-    const rollbar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 2.0), chromeMat);
-    rollbar.position.set(0, 1.88, -0.2);
-    car.add(body, cabin, bull, rollbar);
+    car.add(body, cabin);
+    const wp = buildWheels(car, 1.12, 1.45, -1.45, spec.wheelR);
+    parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   } else if (styleKey === 'muscle') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.6, 4.6), bodyMat);
     body.position.y = 0.68; body.castShadow = true;
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.7), glassMat);
     cabin.position.set(0, 1.2, -0.5); cabin.castShadow = true;
-    const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.9), darkMat);
-    scoop.position.set(0, 1.03, 1.3);
-    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 6), chromeMat);
-    exhaust.rotation.z = Math.PI / 2;
-    exhaust.position.set(0.7, 0.42, -2.35);
-    car.add(body, cabin, scoop, exhaust);
-  } else { // sports
+    car.add(body, cabin);
+    const wp = buildWheels(car, 1.02, 1.45, -1.45, spec.wheelR);
+    parts.wheels = wp.wheels; parts.fronts = wp.fronts;
+  } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 4.4), bodyMat);
     body.position.y = 0.62; body.castShadow = true;
     const hood = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.24, 1.5), bodyMat);
     hood.position.set(0, 0.84, 1.35); hood.rotation.x = 0.055; hood.castShadow = true;
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.44, 2.0), glassMat);
     cabin.position.set(0, 1.05, -0.35); cabin.castShadow = true;
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.07, 0.55), darkMat);
-    wing.position.set(0, 1.06, -2.15);
-    const splitter = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.14, 0.5), darkMat);
-    splitter.position.set(0, 0.38, 2.1);
-    car.add(body, hood, cabin, wing, splitter);
+    car.add(body, hood, cabin);
+    const wp = buildWheels(car, 1.02, 1.45, -1.45, spec.wheelR);
+    parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   }
 
   if (styleKey !== 'motorcycle') {
     const hlGeo = new THREE.BoxGeometry(0.42, 0.14, 0.08);
-    const fy = styleKey === 'offroad' || styleKey === 'truck' || styleKey === 'suv' ? 1.0 : 0.78;
-    const fz = styleKey === 'muscle' ? 2.31 : styleKey === 'truck' ? 2.35 : styleKey === 'van' ? 2.45 : 2.21;
+    const fy = 0.78;
+    const fz = 2.21;
     [[-0.62, headLightMat, fz], [0.62, headLightMat, fz],
      [-0.62, tailLightMat, -fz], [0.62, tailLightMat, -fz]].forEach(([x, m, z]) => {
       const l = new THREE.Mesh(hlGeo, m);
       l.position.set(x, fy, z);
       car.add(l);
     });
-  }
-
-  if (styleKey !== 'motorcycle') {
-    const wp = buildWheels(car, styleKey === 'offroad' ? 1.12 : styleKey === 'truck' ? 1.18 : styleKey === 'suv' ? 1.08 : 1.02, 1.45, -1.45, spec.wheelR);
-    parts.wheels = wp.wheels; parts.fronts = wp.fronts;
   }
 
   const dash = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.22, 0.5), darkMat);
@@ -286,8 +250,7 @@ function aiDecide(c) {
     return;
   }
   const straight = opts.find(o => o.d === c.dir);
-  const pick = (straight && Math.random() < 0.55) ? straight
-             : opts[Math.floor(Math.random() * opts.length)];
+  const pick = (straight && Math.random() < 0.55) ? straight : opts[Math.floor(Math.random() * opts.length)];
   c.dir = pick.d; c.road = pick.road2; c.s = pick.s2; c.nextI = pick.nI;
   c.targetSpeed = 8 + Math.random() * 5;
   c.turnSignal = 3;
@@ -315,8 +278,7 @@ function buildTrafficCar(colorHex) {
   g.add(body, cabin);
   const parts = buildWheels(g, 0.98, 1.3, -1.35, 0.36);
   g.userData.wheels = parts.wheels;
-  g.userData.sigL = sigL;
-  g.userData.sigR = sigR;
+  g.userData.sigL = sigL; g.userData.sigR = sigR;
   return g;
 }
 for (let i = 0; i < 22; i++) {
@@ -335,6 +297,7 @@ for (let i = 0; i < 22; i++) {
     turnSignal: 0,
     signalL: group.userData.sigL,
     signalR: group.userData.sigR,
+    stopped: false, stopTimer: 0,
   };
   const p = aiXZ(c);
   if (Math.abs(p.x - carState.pos.x) < 16 && Math.abs(p.z - carState.pos.z) < 16) { i--; continue; }
@@ -357,7 +320,24 @@ function updateTraffic(dt) {
     };
     for (const o of aiCars) if (o !== c) check(o.group.position.x, o.group.position.z);
     check(carState.pos.x, carState.pos.z);
-    const want = blocked === 2 ? 0 : blocked === 1 ? 3 : c.targetSpeed;
+    let shouldStop = false;
+    for (const tl of trafficLights) {
+      if (tl.state === 'red' || tl.state === 'yellow') {
+        const tdx = tl.x - c.group.position.x, tdz = tl.z - c.group.position.z;
+        const tDist = Math.hypot(tdx, tdz);
+        if (tDist < tl.redDist && tl.state === 'red') shouldStop = true;
+        if (tDist < tl.yellowDist && tl.state === 'yellow') shouldStop = true;
+      }
+    }
+    for (const ss of stopSigns) {
+      const sdx = ss.x - c.group.position.x, sdz = ss.z - c.group.position.z;
+      if (Math.hypot(sdx, sdz) < ss.radius) shouldStop = true;
+    }
+    for (const cz of constructionZones) {
+      const cdx = cz.x - c.group.position.x, cdz = cz.z - c.group.position.z;
+      if (Math.hypot(cdx, cdz) < cz.r) shouldStop = true;
+    }
+    const want = shouldStop ? 0 : blocked === 2 ? 0 : blocked === 1 ? 3 : c.targetSpeed;
     c.speed += (want - c.speed) * Math.min(1, dt * (want < c.speed ? 6 : 1.2));
     c.s += dirSign[c.dir] * c.speed * dt;
     if (dirSign[c.dir] > 0 ? c.s >= c.nextI : c.s <= c.nextI) aiDecide(c);
@@ -374,13 +354,8 @@ function updateTraffic(dt) {
     if (c.turnSignal > 0) {
       c.turnSignal -= dt;
       const blink = Math.sin(c.turnSignal * 8) > 0;
-      if (c.dir === 0 || c.dir === 2) {
-        c.signalL.material.emissiveIntensity = blink ? 1.5 : 0;
-        c.signalR.material.emissiveIntensity = blink ? 1.5 : 0;
-      } else {
-        c.signalL.material.emissiveIntensity = blink ? 1.5 : 0;
-        c.signalR.material.emissiveIntensity = blink ? 1.5 : 0;
-      }
+      c.signalL.material.emissiveIntensity = blink ? 1.5 : 0;
+      c.signalR.material.emissiveIntensity = blink ? 1.5 : 0;
     } else {
       c.signalL.material.emissiveIntensity = 0;
       c.signalR.material.emissiveIntensity = 0;
@@ -393,10 +368,8 @@ const peds = [];
 {
   const bodyGeo = new THREE.CylinderGeometry(0.22, 0.3, 1.0, 8);
   const headGeo = new THREE.SphereGeometry(0.19, 8, 8);
-  const skinMat = lambert(0xd9a77c);
   const skinTones = [0xd9a77c, 0xc49060, 0xe8c4a0, 0xb08050, 0x8b6040];
-  const shirtColors = [0x2e7fd4, 0xd4444e, 0x44aa66, 0xddaa33, 0x8844aa, 0x44aadd, 0xdd6644, 0x66bb88];
-  for (let i = 0; i < 35; i++) {
+  for (let i = 0; i < 45; i++) {
     const bx = BLOCK_CENTERS[Math.floor(Math.random() * BLOCK_CENTERS.length)];
     const bz = BLOCK_CENTERS[Math.floor(Math.random() * BLOCK_CENTERS.length)];
     const g = new THREE.Group();
@@ -420,8 +393,7 @@ const peds = [];
     g.add(body, head, legL, legR);
     g.userData = { legL, legR };
     scene.add(g);
-    const walkStyle = Math.random();
-    peds.push({ g, bx, bz, t: Math.random() * 180, speed: 1.1 + Math.random() * 1.1, walkStyle });
+    peds.push({ g, bx, bz, t: Math.random() * 180, speed: 1.1 + Math.random() * 1.1 });
   }
 }
 function updatePeds(dt) {
@@ -442,99 +414,4 @@ function updatePeds(dt) {
       p.g.userData.legR.rotation.x = -sw;
     }
   }
-}
-
-// ---------- Humanoid builder (player character + bots) ----------
-function buildHumanoid(shirtHex, withGun) {
-  const g = new THREE.Group();
-  const shirt = lambert(shirtHex);
-  const pants = lambert(0x2c3340);
-  const skin = lambert(0xd9a77c);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.66, 0.3), shirt);
-  torso.position.y = 1.16; torso.castShadow = true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), skin);
-  head.position.y = 1.66;
-  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-  eyeL.position.set(-0.07, 1.68, 0.17);
-  const eyeR = eyeL.clone();
-  eyeR.position.x = 0.07;
-  const limbs = {};
-  const armGeo = new THREE.BoxGeometry(0.14, 0.56, 0.14);
-  armGeo.translate(0, -0.28, 0);
-  const legGeo = new THREE.BoxGeometry(0.17, 0.62, 0.17);
-  legGeo.translate(0, -0.31, 0);
-  limbs.armL = new THREE.Mesh(armGeo, shirt); limbs.armL.position.set(-0.36, 1.42, 0);
-  limbs.armR = new THREE.Mesh(armGeo, shirt); limbs.armR.position.set(0.36, 1.42, 0);
-  limbs.legL = new THREE.Mesh(legGeo, pants); limbs.legL.position.set(-0.15, 0.86, 0);
-  limbs.legR = new THREE.Mesh(legGeo, pants); limbs.legR.position.set(0.15, 0.86, 0);
-  [limbs.armL, limbs.armR, limbs.legL, limbs.legR].forEach(m => { m.castShadow = true; g.add(m); });
-  g.add(torso, head, eyeL, eyeR);
-  let gun = null;
-  if (withGun) {
-    const gunGroup = new THREE.Group();
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.55), lambert(0x1a1d22));
-    barrel.position.z = 0.28;
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.06), lambert(0x2a2d32));
-    grip.position.set(0, -0.1, -0.05);
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.15), lambert(0x3a3530));
-    stock.position.set(0, 0, -0.2);
-    gunGroup.add(barrel, grip, stock);
-    gunGroup.position.set(0.36, 0.82, 0.34);
-    gun = gunGroup;
-    g.add(gunGroup);
-  }
-  g.userData = { limbs, gun, torso, head };
-  return g;
-}
-function animateHumanoid(g, walkPhase, moving, aiming) {
-  const { limbs, gun } = g.userData;
-  const sw = moving ? Math.sin(walkPhase) * 0.7 : 0;
-  limbs.legL.rotation.x = sw;
-  limbs.legR.rotation.x = -sw;
-  if (aiming && gun) {
-    limbs.armR.rotation.x = -1.35;
-    limbs.armL.rotation.x = -1.1;
-    gun.position.set(0.36, 1.32, 0.5);
-  } else {
-    limbs.armL.rotation.x = -sw * 0.8;
-    limbs.armR.rotation.x = sw * 0.8;
-    if (gun) gun.position.set(0.36, 0.82, 0.34);
-  }
-}
-
-// player character
-const character = buildHumanoid(0x2e7fd4, true);
-character.visible = false;
-character.userData.gun.visible = false;
-scene.add(character);
-const charState = {
-  pos: new THREE.Vector3(-150, CITY_Y, 8),
-  vel: new THREE.Vector3(),
-  heading: 0,
-  grounded: true,
-  jumps: 0,
-  walkPhase: 0,
-  hp: 100,
-  lastHurt: -99,
-};
-
-// ---------- Battle-royale bots ----------
-const bots = [];
-function spawnBots(n) {
-  for (let i = 0; i < n; i++) {
-    const g = buildHumanoid(new THREE.Color().setHSL(Math.random(), 0.6, 0.45).getHex(), true);
-    const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 110;
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    g.position.set(x, groundAt(x, z, 50), z);
-    scene.add(g);
-    bots.push({
-      g, hp: 100, cd: 1 + Math.random() * 2, alive: true, walkPhase: 0,
-      strafeDir: Math.random() < 0.5 ? 1 : -1, retarget: 0, target: null,
-      id: i + 1, accuracy: 0.3 + Math.random() * 0.4, aggression: Math.random(),
-    });
-  }
-}
-function clearBots() {
-  for (const b of bots) scene.remove(b.g);
-  bots.length = 0;
 }
