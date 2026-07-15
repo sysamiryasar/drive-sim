@@ -48,30 +48,38 @@ const startBtnEl = $('startBtn');
 if (startBtnEl) startBtnEl.addEventListener('click', startGame);
 
 function startGame() {
-  $('homeScreen').classList.add('hidden');
-  $('dashboard').classList.add('active');
-  $('hudOverlay').classList.add('active');
-  $('minimap').classList.add('active');
-  $('speedLimit').classList.add('active');
-  try { initAudio(); } catch(e) {}
   try {
-    const colors = [0xd8342c, 0x2e7fd4, 0xf2c14e, 0x2f9e44, 0xe8e6e0, 0x1a1d24, 0x1a1a4e, 0xcc2222];
-    carColor = colors[Math.floor(Math.random() * colors.length)];
-    swapCar(selectedVehicle, carColor);
-  } catch(e) { console.error('swapCar failed', e); }
-  carState.pos.set(-150, CITY_Y, 3);
-  carState.vel.set(0, 0, 0);
-  carState.heading = Math.PI / 2;
-  if (car) {
-    car.position.copy(carState.pos);
-    car.rotation.set(0, carState.heading, 0);
+    const hs = $('homeScreen'); if (hs) hs.classList.add('hidden');
+    const db = $('dashboard'); if (db) db.classList.add('active');
+    const ho = $('hudOverlay'); if (ho) ho.classList.add('active');
+    const mm = $('minimap'); if (mm) mm.classList.add('active');
+    const sl = $('speedLimit'); if (sl) sl.classList.add('active');
+    try { initAudio(); } catch(e) {}
+    try {
+      const colors = [0xd8342c, 0x2e7fd4, 0xf2c14e, 0x2f9e44, 0xe8e6e0, 0x1a1d24, 0x1a1a4e, 0xcc2222];
+      carColor = colors[Math.floor(Math.random() * colors.length)];
+      swapCar(selectedVehicle, carColor);
+    } catch(e) { console.error('swapCar error:', e); }
+    carState.pos.set(-150, CITY_Y, 3);
+    carState.vel.set(0, 0, 0);
+    carState.heading = Math.PI / 2;
+    if (car) {
+      car.position.copy(carState.pos);
+      car.rotation.set(0, carState.heading, 0);
+    }
+    camera.position.set(-160, CITY_Y + 5, 3);
+    camera.lookAt(carState.pos.x, carState.pos.y + 1.6, carState.pos.z);
+    mode = 'drive';
+    paused = false;
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.focus();
+    showGuidance('Press W to accelerate — Obey traffic signs!', 4000);
+  } catch(e) {
+    console.error('startGame FAILED:', e);
+    document.body.insertAdjacentHTML('beforeend',
+      '<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#c00;color:#fff;padding:20px;z-index:9999;font:16px monospace;border-radius:8px">' +
+      'ERROR: ' + e.message + '</div>');
   }
-  camera.position.set(-160, CITY_Y + 5, 3);
-  camera.lookAt(carState.pos.x, carState.pos.y + 1.6, carState.pos.z);
-  mode = 'drive';
-  paused = false;
-  renderer.domElement.focus();
-  showGuidance('Press W to accelerate — Obey traffic signs!', 4000);
 }
 
 // ---------- Guidance system ----------
@@ -798,11 +806,12 @@ const _size = new THREE.Vector2();
 if (typeof initInput === 'function') initInput();
 
 function tick(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
-  last = now;
+  try {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
 
-  if (typeof pollGamepad === 'function') pollGamepad();
-  if (typeof keyboardToInput === 'function') keyboardToInput(keys);
+    if (typeof pollGamepad === 'function') pollGamepad();
+    if (typeof keyboardToInput === 'function') keyboardToInput(keys);
 
   if (mode !== 'menu' && !paused) {
     if (mode === 'drive' || mode === 'exiting') {
@@ -856,8 +865,20 @@ function tick(now) {
   renderer.render(scene, camera);
   pressed.clear();
   if (typeof inputEndFrame === 'function') inputEndFrame();
+  } catch(e) { console.error('tick error:', e); }
   requestAnimationFrame(tick);
 }
+
+// ---------- Debug overlay ----------
+const _dbgEl = document.createElement('div');
+_dbgEl.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#0f0;font:13px/1.5 monospace;padding:8px 14px;z-index:9999;border-radius:6px;pointer-events:none;white-space:pre';
+document.body.appendChild(_dbgEl);
+setInterval(() => {
+  if (mode === 'menu') { _dbgEl.textContent = 'MODE: menu — click START DRIVING'; return; }
+  const v = carState.vel;
+  const spd = Math.sqrt(v.x * v.x + v.z * v.z) * 3.6;
+  _dbgEl.textContent = `mode=${mode} pos=(${carState.pos.x.toFixed(1)},${carState.pos.y.toFixed(1)},${carState.pos.z.toFixed(1)}) spd=${spd.toFixed(0)} input=(${input.moveX},${input.moveZ}) brake=${input.brake}`;
+}, 200);
 
 setInterval(() => {
   const kmh = Math.abs(carState.vel.dot(_fwd2(carState.heading))) * 3.6;
