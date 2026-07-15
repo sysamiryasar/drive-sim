@@ -54,18 +54,23 @@ function startGame() {
   $('minimap').classList.add('active');
   $('speedLimit').classList.add('active');
   try { initAudio(); } catch(e) {}
-  const colors = [0xd8342c, 0x2e7fd4, 0xf2c14e, 0x2f9e44, 0xe8e6e0, 0x1a1d24, 0x1a1a4e, 0xcc2222];
-  carColor = colors[Math.floor(Math.random() * colors.length)];
-  swapCar(selectedVehicle, carColor);
+  try {
+    const colors = [0xd8342c, 0x2e7fd4, 0xf2c14e, 0x2f9e44, 0xe8e6e0, 0x1a1d24, 0x1a1a4e, 0xcc2222];
+    carColor = colors[Math.floor(Math.random() * colors.length)];
+    swapCar(selectedVehicle, carColor);
+  } catch(e) { console.error('swapCar failed', e); }
   carState.pos.set(-150, CITY_Y, 3);
   carState.vel.set(0, 0, 0);
   carState.heading = Math.PI / 2;
-  car.position.copy(carState.pos);
-  car.rotation.set(0, carState.heading, 0);
+  if (car) {
+    car.position.copy(carState.pos);
+    car.rotation.set(0, carState.heading, 0);
+  }
   camera.position.set(-160, CITY_Y + 5, 3);
   camera.lookAt(carState.pos.x, carState.pos.y + 1.6, carState.pos.z);
   mode = 'drive';
   paused = false;
+  renderer.domElement.focus();
   showGuidance('Press W to accelerate — Obey traffic signs!', 4000);
 }
 
@@ -717,6 +722,7 @@ addEventListener('keydown', (e) => {
   if (!e.repeat) pressed.add(e.code);
   keys[e.code] = true;
   if (mode === 'menu') return;
+  if (['Space','KeyW','KeyA','KeyS','KeyD','KeyE','KeyQ','KeyR','KeyF','KeyH','KeyC','KeyB','KeyM'].includes(e.code)) e.preventDefault();
   if (e.code === 'Escape') { togglePause(); return; }
   if (paused) return;
   initAudio();

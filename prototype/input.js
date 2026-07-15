@@ -225,8 +225,6 @@ function pollGamepad() {
 
 // ---------- Keyboard -> unified input (used by main.js) ----------
 function keyboardToInput(keysMap) {
-  // only override if no gamepad/touch active
-  if (gamepadIndex !== null) return;
   if (joyTouchId !== null) return;
   let mx = 0, mz = 0;
   if (keysMap['KeyA']) mx += 1;
