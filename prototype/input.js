@@ -30,76 +30,48 @@ const TOUCH_ZONES = {
   buttons: {},      // named button elements
 };
 
-const BUTTON_ACTIONS = [
-  { id: 'tb-brake', label: '⏹', action: 'brake', hold: true },
-  { id: 'tb-jump', label: '⬆', action: 'jump', hold: false },
-  { id: 'tb-sprint', label: '⚡', action: 'sprint', hold: true },
-  { id: 'tb-enter', label: 'F', action: 'enter', hold: false },
-  { id: 'tb-camera', label: 'C', action: 'camera', hold: false },
-  { id: 'tb-build', label: 'B', action: 'build', hold: false },
-  { id: 'tb-fight', label: 'G', action: 'fight', hold: false },
-  { id: 'tb-reset', label: 'R', action: 'reset', hold: false },
-  { id: 'tb-fire', label: '🎯', action: 'fire', hold: true },
-  { id: 'tb-fullscreen', label: '⛶', action: 'fullscreen', hold: false },
-];
-
 function buildTouchUI() {
   if (touchUI) return;
-  touchUI = document.createElement('div');
-  touchUI.id = 'touch-ui';
+  touchUI = document.getElementById('touch-ui');
+  if (!touchUI) return;
 
-  // joystick area
-  const joyArea = document.createElement('div');
-  joyArea.id = 'joy-area';
-  const joyBase = document.createElement('div');
-  joyBase.id = 'joy-base';
-  const joyKnob = document.createElement('div');
-  joyKnob.id = 'joy-knob';
-  joyBase.appendChild(joyKnob);
-  joyArea.appendChild(joyBase);
-  touchUI.appendChild(joyArea);
-  TOUCH_ZONES.joystick = joyArea;
-  TOUCH_ZONES.joyBase = joyBase;
-  TOUCH_ZONES.joyKnob = joyKnob;
+  const joyArea = document.getElementById('joy-area');
+  const joyBase = document.getElementById('joy-base');
+  const joyKnob = document.getElementById('joy-knob');
+  const lookArea = document.getElementById('look-area');
+  const btnPanel = document.getElementById('touch-btns');
 
-  // look area (right side, upper)
-  const lookArea = document.createElement('div');
-  lookArea.id = 'look-area';
-  touchUI.appendChild(lookArea);
-  TOUCH_ZONES.look = lookArea;
+  if (joyArea) TOUCH_ZONES.joystick = joyArea;
+  if (joyBase) TOUCH_ZONES.joyBase = joyBase;
+  if (joyKnob) TOUCH_ZONES.joyKnob = joyKnob;
+  if (lookArea) TOUCH_ZONES.look = lookArea;
 
-  // buttons panel (right side, lower)
-  const btnPanel = document.createElement('div');
-  btnPanel.id = 'touch-btns';
-  for (const b of BUTTON_ACTIONS) {
-    const btn = document.createElement('div');
-    btn.className = 'tbtn';
-    btn.id = b.id;
-    btn.textContent = b.label;
-    btn.dataset.action = b.action;
-    btn.dataset.hold = b.hold;
-    btnPanel.appendChild(btn);
-    TOUCH_ZONES.buttons[b.action] = btn;
+  if (btnPanel) {
+    btnPanel.querySelectorAll('.tbtn').forEach((btn) => {
+      const action = btn.dataset.action;
+      if (action) TOUCH_ZONES.buttons[action] = btn;
+    });
   }
-  touchUI.appendChild(btnPanel);
 
-  document.body.appendChild(touchUI);
   document.body.classList.add('touch-device');
 
-  // touch events
-  joyArea.addEventListener('touchstart', onJoyStart, { passive: false });
-  joyArea.addEventListener('touchmove', onJoyMove, { passive: false });
-  joyArea.addEventListener('touchend', onJoyEnd, { passive: false });
-  joyArea.addEventListener('touchcancel', onJoyEnd, { passive: false });
-
-  lookArea.addEventListener('touchstart', onLookStart, { passive: false });
-  lookArea.addEventListener('touchmove', onLookMove, { passive: false });
-  lookArea.addEventListener('touchend', onLookEnd, { passive: false });
-  lookArea.addEventListener('touchcancel', onLookEnd, { passive: false });
-
-  btnPanel.addEventListener('touchstart', onBtnStart, { passive: false });
-  btnPanel.addEventListener('touchend', onBtnEnd, { passive: false });
-  btnPanel.addEventListener('touchcancel', onBtnEnd, { passive: false });
+  if (joyArea) {
+    joyArea.addEventListener('touchstart', onJoyStart, { passive: false });
+    joyArea.addEventListener('touchmove', onJoyMove, { passive: false });
+    joyArea.addEventListener('touchend', onJoyEnd, { passive: false });
+    joyArea.addEventListener('touchcancel', onJoyEnd, { passive: false });
+  }
+  if (lookArea) {
+    lookArea.addEventListener('touchstart', onLookStart, { passive: false });
+    lookArea.addEventListener('touchmove', onLookMove, { passive: false });
+    lookArea.addEventListener('touchend', onLookEnd, { passive: false });
+    lookArea.addEventListener('touchcancel', onLookEnd, { passive: false });
+  }
+  if (btnPanel) {
+    btnPanel.addEventListener('touchstart', onBtnStart, { passive: false });
+    btnPanel.addEventListener('touchend', onBtnEnd, { passive: false });
+    btnPanel.addEventListener('touchcancel', onBtnEnd, { passive: false });
+  }
 }
 
 let joyTouchId = null;
@@ -184,8 +156,6 @@ function onBtnStart(e) {
     if (el.dataset.hold === 'true') {
       heldButtons.add(action);
       if (action === 'brake') input.brake = true;
-      if (action === 'sprint') input.sprint = true;
-      if (action === 'fire') input.fire = true;
     } else {
       queueEdge(action);
     }
@@ -201,8 +171,6 @@ function onBtnEnd(e) {
     if (info.el.dataset.hold === 'true') {
       heldButtons.delete(info.action);
       if (info.action === 'brake') input.brake = false;
-      if (info.action === 'sprint') input.sprint = false;
-      if (info.action === 'fire') input.fire = false;
     }
     delete activeTouches[t.identifier];
   }
@@ -214,12 +182,11 @@ const gpPrev = {};   // previous button states for edge detection
 const GP_DEADZONE = 0.18;
 
 const GP_MAP = {
-  0: 'jump',        // A / Cross
-  1: 'enter',       // B / Circle
-  2: 'build',       // X / Square
-  3: 'fight',       // Y / Triangle
-  4: 'sprint',      // LB
-  5: 'camera',      // RB
+  0: 'horn',        // A / Cross
+  1: 'camera',      // B / Circle
+  2: 'reset',       // X / Square
+  4: 'brake',       // LB
+  5: 'fullscreen',  // RB
   8: 'reset',       // Select/Back
   9: 'fullscreen',  // Start
 };
@@ -245,7 +212,6 @@ function pollGamepad() {
 
   // triggers
   input.brake = gp.buttons[6] && gp.buttons[6].value > 0.3;   // LT
-  input.fire = gp.buttons[7] && gp.buttons[7].value > 0.3;    // RT
 
   // buttons (edge detect)
   for (const [idx, action] of Object.entries(GP_MAP)) {
@@ -255,9 +221,6 @@ function pollGamepad() {
     gpPrev[idx] = b.pressed;
     if (b.pressed && !wasPressed) queueEdge(action);
   }
-
-  // sprint from LB hold
-  input.sprint = gp.buttons[4] && gp.buttons[4].pressed;
 }
 
 // ---------- Keyboard -> unified input (used by main.js) ----------
@@ -273,7 +236,6 @@ function keyboardToInput(keysMap) {
   input.moveX = mx;
   input.moveZ = mz;
   input.brake = !!keysMap['Space'];
-  input.sprint = !!keysMap['ShiftLeft'];
 }
 
 // ---------- Per-frame bookkeeping ----------

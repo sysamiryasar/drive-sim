@@ -783,9 +783,8 @@ renderer.domElement.addEventListener('mousedown', (e) => {
 });
 addEventListener('mouseup', () => { mouseDown = false; });
 
-// ---------- Touch input ----------
-const isTouchDevice = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) && matchMedia('(pointer: coarse)').matches;
-if (isTouchDevice) document.body.classList.add('touch-device');
+// ---------- Touch device (check input.js for isTouchDevice) ----------
+if (typeof isTouchDevice !== 'undefined' && isTouchDevice) document.body.classList.add('touch-device');
 
 // ---------- Main loop ----------
 let last = performance.now();
