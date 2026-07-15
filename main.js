@@ -545,7 +545,7 @@ function updateFlyCamera(dt) {
   if (input.moveX < -0.2) camera.position.addScaledVector(right, -v * input.moveX);
   if (input.moveX > 0.2) camera.position.addScaledVector(right, -v * input.moveX);
   if (keys['KeyE'] || input.brake) camera.position.y += v;
-  if (keys['KeyQ'] || input.sprint) camera.position.y -= v;
+  if (keys['KeyQ']) camera.position.y -= v;
   camera.position.y = Math.max(camera.position.y, groundAt(camera.position.x, camera.position.z, camera.position.y) + 1);
 }
 
