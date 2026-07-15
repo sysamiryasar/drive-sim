@@ -29,27 +29,31 @@ function toast(msg) {
 // ---------- Home screen ----------
 let selectedVehicle = 'sports';
 const carCardsEl = $('carCards');
-for (const [key, spec] of Object.entries(VEHICLES)) {
-  const card = document.createElement('div');
-  card.className = 'car-card' + (key === selectedVehicle ? ' selected' : '');
-  card.dataset.vehicle = key;
-  card.innerHTML = `<div class="icon">${spec.icon}</div><div class="name">${spec.name}</div>
-    <div class="stats">Accel: ${Math.round(spec.accel / 23 * 100)}%<br>Top: ${spec.maxSpeed} km/h<br>Grip: ${Math.round(spec.grip / 10 * 100)}%</div>`;
-  card.addEventListener('click', () => {
-    document.querySelectorAll('.car-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    selectedVehicle = key;
-  });
-  carCardsEl.appendChild(card);
+if (carCardsEl) {
+  for (const [key, spec] of Object.entries(VEHICLES)) {
+    const card = document.createElement('div');
+    card.className = 'car-card' + (key === selectedVehicle ? ' selected' : '');
+    card.dataset.vehicle = key;
+    card.innerHTML = `<div class="icon">${spec.icon}</div><div class="name">${spec.name}</div>
+      <div class="stats">Accel: ${Math.round(spec.accel / 23 * 100)}%<br>Top: ${spec.maxSpeed} km/h<br>Grip: ${Math.round(spec.grip / 10 * 100)}%</div>`;
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.car-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedVehicle = key;
+    });
+    carCardsEl.appendChild(card);
+  }
 }
-$('startBtn').addEventListener('click', startGame);
+const startBtnEl = $('startBtn');
+if (startBtnEl) startBtnEl.addEventListener('click', startGame);
 
 function startGame() {
   $('homeScreen').classList.add('hidden');
   $('dashboard').classList.add('active');
   $('hudOverlay').classList.add('active');
   $('minimap').classList.add('active');
-  initAudio();
+  $('speedLimit').classList.add('active');
+  try { initAudio(); } catch(e) {}
   const colors = [0xd8342c, 0x2e7fd4, 0xf2c14e, 0x2f9e44, 0xe8e6e0, 0x1a1d24, 0x1a1a4e, 0xcc2222];
   carColor = colors[Math.floor(Math.random() * colors.length)];
   swapCar(selectedVehicle, carColor);
@@ -57,7 +61,11 @@ function startGame() {
   carState.vel.set(0, 0, 0);
   carState.heading = Math.PI / 2;
   car.position.copy(carState.pos);
+  car.rotation.set(0, carState.heading, 0);
+  camera.position.set(-160, CITY_Y + 5, 3);
+  camera.lookAt(carState.pos.x, carState.pos.y + 1.6, carState.pos.z);
   mode = 'drive';
+  paused = false;
   showGuidance('Press W to accelerate — Obey traffic signs!', 4000);
 }
 
@@ -282,7 +290,9 @@ let engineOsc, engineOsc2, engineGain, engineFilter;
 function initAudio() {
   if (audio !== null) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { audio = false; return; }
+    const ctx = new AC();
     engineOsc = ctx.createOscillator(); engineOsc.type = 'sawtooth';
     engineOsc2 = ctx.createOscillator(); engineOsc2.type = 'triangle';
     engineFilter = ctx.createBiquadFilter(); engineFilter.type = 'lowpass'; engineFilter.frequency.value = 480;
@@ -824,6 +834,18 @@ function tick(now) {
     $('hudZone').textContent = p.y < UW_LIMIT ? 'Underworld' : p.y > 120 ? 'Sky Realm' : 'City Center';
 
     drawMinimap();
+  } else {
+    // Menu mode: slowly orbit camera around the city
+    const t = now * 0.0001;
+    camera.position.set(Math.sin(t) * 200, CITY_Y + 40, Math.cos(t) * 200);
+    camera.lookAt(0, CITY_Y, 0);
+    skyGroup.position.copy(camera.position);
+    // animate clouds in menu too
+    for (const cl of clouds) {
+      cl.position.x += 1.6 * dt;
+      if (cl.position.x > 470) cl.position.x = -470;
+    }
+    updateDayNight(dt);
   }
 
   renderer.render(scene, camera);
