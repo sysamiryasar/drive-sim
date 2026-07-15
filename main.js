@@ -539,7 +539,7 @@ function updateChaseCamera(dt) {
     return;
   }
   _camTarget.copy(carState.pos).addScaledVector(_fwd, -6);
-  _camTarget.y = Math.max(carState.pos.y + 2.8, groundAt(_camTarget.x, _camTarget.z, carState.pos.y + 6) + 1.5);
+  _camTarget.y = Math.max(carState.pos.y + 2.8, surfaceGroundY(_camTarget.x, _camTarget.z) + 2);
   const k = 1 - Math.pow(0.0001, dt);
   camera.position.lerp(_camTarget, k);
   _look.copy(carState.pos); _look.y += 1.6;
