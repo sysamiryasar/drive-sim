@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "prototype",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "prototype", "-l", "5173", "--no-clipboard"],
+      "port": 5173
+    }
+  ]
+}
