@@ -67,7 +67,12 @@ function startGame() {
       car.position.copy(carState.pos);
       car.rotation.set(0, carState.heading, 0);
     }
-    camera.position.set(-160, CITY_Y + 5, 3);
+    const hd = carState.heading;
+    camera.position.set(
+      carState.pos.x - Math.sin(hd) * 8,
+      carState.pos.y + 3.5,
+      carState.pos.z - Math.cos(hd) * 8
+    );
     camera.lookAt(carState.pos.x, carState.pos.y + 1.6, carState.pos.z);
     mode = 'drive';
     paused = false;
@@ -533,8 +538,8 @@ function updateChaseCamera(dt) {
     if (camera.fov !== 72) { camera.fov = 72; camera.updateProjectionMatrix(); }
     return;
   }
-  _camTarget.copy(carState.pos).addScaledVector(_fwd, -9.5);
-  _camTarget.y = Math.max(carState.pos.y + 4.2, groundAt(_camTarget.x, _camTarget.z, carState.pos.y + 6) + 2);
+  _camTarget.copy(carState.pos).addScaledVector(_fwd, -6);
+  _camTarget.y = Math.max(carState.pos.y + 2.8, groundAt(_camTarget.x, _camTarget.z, carState.pos.y + 6) + 1.5);
   const k = 1 - Math.pow(0.0001, dt);
   camera.position.lerp(_camTarget, k);
   _look.copy(carState.pos); _look.y += 1.6;
