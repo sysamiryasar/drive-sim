@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realm Craft — Prototype 0.5 "Realism"</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 14px; left: 14px; z-index: 10;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px; padding: 12px 16px; min-width: 235px;
+    backdrop-filter: blur(6px); user-select: none;
+  }
+  #hud h1 { font-size: 15px; margin: 0 0 2px 0; letter-spacing: 1px; }
+  #hud .tag { font-size: 10px; color: #8fd3ff; margin-bottom: 8px; letter-spacing: 0.5px; }
+  #hud .row { font-size: 13px; margin: 3px 0; display: flex; justify-content: space-between; gap: 16px; }
+  #hud .row b { color: #ffd166; font-weight: 600; }
+  #mode { color: #7CFC9A; font-weight: 700; }
+  #controls {
+    position: fixed; bottom: 14px; left: 14px; z-index: 10;
+    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; color: #cfd8e3;
+    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px; padding: 10px 14px; line-height: 1.55;
+    backdrop-filter: blur(6px); user-select: none;
+  }
+  #controls b { color: #fff; }
+  #speedo {
+    position: fixed; bottom: 16px; right: 16px; z-index: 10;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; text-align: right;
+    background: rgba(8, 12, 22, 0.72); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px; padding: 10px 18px 8px; user-select: none;
+    backdrop-filter: blur(6px);
+  }
+  #speedNum { font-size: 42px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  #speedo .unit { font-size: 12px; color: #9fb2c8; letter-spacing: 1px; }
+  #minimap {
+    position: fixed; top: 14px; right: 14px; z-index: 10;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(8, 12, 22, 0.8);
+  }
+  #palette {
+    position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: none; gap: 8px; font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  #palette .slot {
+    width: 46px; height: 46px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: flex-end; justify-content: center;
+    font-size: 10px; color: #fff; padding-bottom: 3px; box-sizing: border-box;
+    text-shadow: 0 1px 2px #000;
+  }
+  #palette .slot.sel { border-color: #ffd166; box-shadow: 0 0 12px rgba(255,209,102,0.6); }
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10;
+    color: #fff; font-size: 22px; font-weight: 300; display: none;
+    text-shadow: 0 0 4px #000; pointer-events: none;
+  }
+  #toast {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 11;
+    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #fff;
+    background: rgba(8, 12, 22, 0.85); border-radius: 8px; padding: 8px 16px;
+    opacity: 0; transition: opacity 0.4s; pointer-events: none;
+  }
+  #bigmsg {
+    position: fixed; top: 22%; left: 50%; transform: translateX(-50%); z-index: 12;
+    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 26px; font-weight: 700; color: #fff;
+    background: rgba(8, 12, 22, 0.85); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 12px; padding: 14px 28px; text-align: center;
+    opacity: 0; transition: opacity 0.35s; pointer-events: none; white-space: nowrap;
+  }
+  #hitflash {
+    position: fixed; inset: 0; z-index: 9; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(255,30,30,0.55) 100%);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  #healthwrap {
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 10;
+    width: 260px; height: 16px; display: none;
+    background: rgba(8,12,22,0.8); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+    overflow: hidden;
+  }
+  #healthbar { height: 100%; width: 100%; background: linear-gradient(90deg, #46d46a, #7CFC9A); transition: width 0.15s; }
+  #alivewrap {
+    position: fixed; top: 196px; right: 14px; z-index: 10; display: none;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; text-align: center;
+    background: rgba(8, 12, 22, 0.8); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px; padding: 8px 18px;
+  }
+  #alive { font-size: 26px; font-weight: 700; color: #ff9a6b; }
+  #alivewrap .lbl { font-size: 10px; color: #9fb2c8; letter-spacing: 1px; }
+  #garage {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 15;
+    display: none; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    background: rgba(8, 12, 22, 0.92); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 14px; padding: 18px 26px; min-width: 320px; max-height: 80vh; overflow-y: auto;
+  }
+  #garage h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 1px; }
+  #garage .grow { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  #garage .gname { width: 90px; font-size: 13px; color: #cfd8e3; }
+  #garage .swatch {
+    width: 30px; height: 30px; border-radius: 6px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+  #garage .swatch:hover { border-color: #ffd166; transform: scale(1.1); }
+  #garage .ghint { font-size: 11px; color: #8fa2b8; margin-top: 10px; }
+
+  #touch-ui { display: none; }
+  body.touch-device #touch-ui { display: block; }
+  body.touch-device #controls { display: none; }
+  #joy-area {
+    position: fixed; bottom: 30px; left: 24px; z-index: 20;
+    width: 140px; height: 140px; touch-action: none;
+  }
+  #joy-base {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.22);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  #joy-knob {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    transition: none;
+  }
+  #look-area {
+    position: fixed; top: 0; right: 0; bottom: 200px; width: 50%; z-index: 18;
+    touch-action: none;
+  }
+  #touch-btns {
+    position: fixed; bottom: 20px; right: 16px; z-index: 20;
+    display: flex; flex-wrap: wrap-reverse; gap: 10px; width: 190px;
+    justify-content: flex-end; touch-action: none;
+  }
+  .tbtn {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.25);
+    color: #fff; font-size: 18px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    text-shadow: 0 1px 3px #000;
+  }
+  .tbtn.active {
+    background: rgba(255,209,102,0.35); border-color: #ffd166;
+    transform: scale(0.92);
+  }
+  #tb-fire { background: rgba(255,60,40,0.2); border-color: rgba(255,80,60,0.5); }
+  #tb-brake { background: rgba(255,180,40,0.15); }
+  #tb-jump { background: rgba(60,200,120,0.15); }
+  #tb-fullscreen { width: 40px; height: 40px; font-size: 20px; opacity: 0.6; }
+
+  @media (max-width: 600px) {
+    #hud { transform: scale(0.82); transform-origin: top left; padding: 8px 12px; min-width: 180px; }
+    #hud h1 { font-size: 12px; }
+    #hud .row { font-size: 11px; }
+    #speedo { transform: scale(0.75); transform-origin: bottom right; }
+    #minimap { width: 110px; height: 110px; }
+    #palette .slot { width: 36px; height: 36px; font-size: 8px; }
+    #bigmsg { font-size: 18px; padding: 10px 18px; }
+  }
+  @media (max-width: 400px) {
+    #hud { transform: scale(0.7); }
+    #minimap { width: 85px; height: 85px; }
+  }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>REALM CRAFT</h1>
+  <div class="tag">PROTOTYPE 0.5 — "REALISM"</div>
+  <div class="row"><span>Mode</span><span id="mode">DRIVE</span></div>
+  <div class="row"><span>Time</span><b id="clock">09:00</b></div>
+  <div class="row"><span>Weather</span><b id="weather">Clear</b></div>
+  <div class="row"><span>Biome</span><b id="biome">Urban</b></div>
+  <div class="row"><span>Zone</span><b id="zone">Surface</b></div>
+  <div class="row"><span>Traffic</span><b id="traffic">0</b></div>
+  <div class="row"><span>Blocks placed</span><b id="blocks">0</b></div>
+</div>
+<div id="controls">
+  <b>W A S D</b> move &middot; <b>Space</b> brake / jump &middot; <b>Shift</b> sprint &middot; <b>F</b> enter/exit car &middot; <b>C</b> cockpit view<br>
+  <b>B</b> build mode (LMB place &middot; RMB break &middot; 1-7 material) &middot; <b>G</b> battle royale &middot; <b>M</b> sound &middot; <b>R</b> reset car<br>
+  8 vehicles: Sports, Muscle, Off-Roader, Truck, SUV, Van, Motorcycle, Police &middot; Parkour: double-jump &amp; wall-jump<br>
+  Dynamic weather with snow accumulation &amp; rain puddles &middot; Aurora borealis at night &middot; Find glowing portals to other dimensions
+</div>
+<div id="speedo"><div id="speedNum">0</div><div class="unit">KM/H</div></div>
+<canvas id="minimap" width="170" height="170"></canvas>
+<div id="palette"></div>
+<div id="crosshair">+</div>
+<div id="toast"></div>
+<div id="bigmsg"></div>
+<div id="hitflash"></div>
+<div id="healthwrap"><div id="healthbar"></div></div>
+<div id="alivewrap"><div id="alive">13</div><div class="lbl">ALIVE</div></div>
+<div id="garage"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="world.js"></script>
+<script src="entities.js"></script>
+<script src="input.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
