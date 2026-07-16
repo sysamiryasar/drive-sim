@@ -18,28 +18,40 @@ const modelCache = {};
 let modelsLoaded = false;
 
 function loadAllModels() {
-  if (typeof THREE.GLTFLoader === 'undefined') {
-    console.warn('GLTFLoader not available — using primitive models');
+  if (typeof THREE.GLTFLoader !== 'undefined') {
+    _doLoadModels();
     return;
   }
-  const loader = new THREE.GLTFLoader();
-  const names = Object.keys(VEHICLES).concat(['helicopter', 'plane']);
-  let pending = names.length;
-  for (const name of names) {
-    loader.load('models/' + name + '.glb',
-      function(gltf) {
-        modelCache[name] = gltf.scene;
-        if (--pending === 0) {
-          modelsLoaded = true;
-          console.log('Models loaded:', Object.keys(modelCache));
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+  s.onload = function() { _doLoadModels(); };
+  s.onerror = function() { console.warn('GLTFLoader CDN unavailable — using primitive models'); };
+  document.head.appendChild(s);
+}
+
+function _doLoadModels() {
+  if (typeof THREE.GLTFLoader === 'undefined') return;
+  var loader = new THREE.GLTFLoader();
+  var names = Object.keys(VEHICLES).concat(['helicopter', 'plane']);
+  var pending = names.length;
+  for (var i = 0; i < names.length; i++) {
+    (function(name) {
+      loader.load('models/' + name + '.glb',
+        function(gltf) {
+          modelCache[name] = gltf.scene;
+          if (--pending === 0) {
+            modelsLoaded = true;
+            console.log('Models loaded:', Object.keys(modelCache));
+            if (typeof toast === 'function') toast('3D models loaded!');
+          }
+        },
+        undefined,
+        function() {
+          console.log('No model: models/' + name + '.glb');
+          if (--pending === 0) modelsLoaded = true;
         }
-      },
-      undefined,
-      function() {
-        console.log('No model: models/' + name + '.glb — using primitives');
-        if (--pending === 0) modelsLoaded = true;
-      }
-    );
+      );
+    })(names[i]);
   }
 }
 loadAllModels();
