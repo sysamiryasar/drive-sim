@@ -13,6 +13,57 @@ const signalMat = new THREE.MeshLambertMaterial({
   color: srgb(0x886600), emissive: srgb(0xffaa00), emissiveIntensity: 0,
 });
 
+// ---------- 3D Model loading ----------
+const modelCache = {};
+let modelsLoaded = false;
+
+function loadAllModels() {
+  if (typeof THREE.GLTFLoader === 'undefined') {
+    console.warn('GLTFLoader not available — using primitive models');
+    return;
+  }
+  const loader = new THREE.GLTFLoader();
+  const names = Object.keys(VEHICLES).concat(['helicopter', 'plane']);
+  let pending = names.length;
+  for (const name of names) {
+    loader.load('models/' + name + '.glb',
+      function(gltf) {
+        modelCache[name] = gltf.scene;
+        if (--pending === 0) {
+          modelsLoaded = true;
+          console.log('Models loaded:', Object.keys(modelCache));
+        }
+      },
+      undefined,
+      function() {
+        console.log('No model: models/' + name + '.glb — using primitives');
+        if (--pending === 0) modelsLoaded = true;
+      }
+    );
+  }
+}
+loadAllModels();
+
+// Auto-scale and center a loaded model to target length
+function fitModel(model, targetLen) {
+  const box = new THREE.Box3().setFromObject(model);
+  const len = Math.max(box.max.z - box.min.z, box.max.x - box.min.x, 0.1);
+  model.scale.setScalar(targetLen / len);
+  const ctr = box.getCenter(new THREE.Vector3()).multiplyScalar(model.scale.x);
+  model.position.sub(ctr);
+  model.traverse(function(c) { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+}
+
+// Find nodes by name pattern
+function findNodes(model, patterns) {
+  const result = [];
+  model.traverse(function(c) {
+    const n = (c.name || '').toLowerCase();
+    for (const p of patterns) { if (n.indexOf(p) >= 0) { result.push(c); return; } }
+  });
+  return result;
+}
+
 function buildWheels(group, wx, wzF, wzR, r) {
   const geo = new THREE.CylinderGeometry(r, r, 0.34, 14);
   geo.rotateZ(Math.PI / 2);
@@ -63,6 +114,22 @@ const VEHICLES = {
 function buildPlayerCar(styleKey, colorHex) {
   const spec = VEHICLES[styleKey];
   const car = new THREE.Group();
+
+  // Try cached .glb model first
+  if (modelCache[styleKey]) {
+    const model = modelCache[styleKey].clone();
+    fitModel(model, styleKey === 'motorcycle' ? 2.4 : 4.4);
+    car.add(model);
+    const wheels = findNodes(model, ['wheel', 'tire', 'tyre', 'rim']);
+    const fronts = findNodes(model, ['fl', 'fr', 'front']);
+    const headlight = new THREE.SpotLight(0xfff4c8, 0, 70, 0.5, 0.45);
+    headlight.position.set(0, 0.9, 2.0);
+    const hlTarget = new THREE.Object3D(); hlTarget.position.set(0, 0, 25);
+    car.add(headlight, hlTarget); headlight.target = hlTarget;
+    car.userData = { wheels: wheels, fronts: fronts, steeringWheel: null, headlight: headlight, bodyMat: null };
+    return car;
+  }
+
   const bodyMat = standard(colorHex, 0.32, 0.65);
   const darkMat = standard(0x15171c, 0.6, 0.3);
   const glassMat = standard(0x1e2a36, 0.1, 0.9, { transparent: true, opacity: 0.55 });
@@ -716,6 +783,17 @@ function updateSpikeStrips(dt) {
 const helicopters = [];
 
 function buildHelicopter() {
+  // Try cached .glb model
+  if (modelCache['helicopter']) {
+    const g = new THREE.Group();
+    const model = modelCache['helicopter'].clone();
+    fitModel(model, 5.0);
+    g.add(model);
+    const blades = findNodes(model, ['blade', 'rotor', 'prop']);
+    g.userData = { blade1: blades[0] || null, blade2: blades[1] || null, lightL: null, lightR: null };
+    return g;
+  }
+
   const g = new THREE.Group();
   const bodyMat = standard(0x1a2a1a, 0.4, 0.4);
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 4.5), bodyMat);
@@ -837,6 +915,17 @@ let planeState = null;
 let inPlane = false;
 
 function buildPlane() {
+  // Try cached .glb model
+  if (modelCache['plane']) {
+    const g = new THREE.Group();
+    const model = modelCache['plane'].clone();
+    fitModel(model, 8.0);
+    g.add(model);
+    const props = findNodes(model, ['prop', 'propeller']);
+    g.userData = { prop: props[0] || null };
+    return g;
+  }
+
   const g = new THREE.Group();
   const bodyMat = standard(0xd4d4d4, 0.3, 0.6);
   const accentMat = standard(0xcc2222, 0.3, 0.5);
