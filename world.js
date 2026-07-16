@@ -1,7 +1,7 @@
 'use strict';
 // ============================================================
 // world.js — renderer, terrain, biomes, city, sky, roads,
-// traffic infrastructure, portals, garage, ground queries
+// traffic infrastructure, garage, ground queries
 // ============================================================
 
 const scene = new THREE.Scene();
@@ -47,7 +47,6 @@ scene.add(ambient);
 const MAP = 900, WATER_Y = 0.4, CITY_Y = 2, CITY_EDGE = 186, BLOCK = 2;
 const ROADS = [-180, -120, -60, 0, 60, 120, 180];
 const BLOCK_CENTERS = [-150, -90, -30, 30, 90, 150];
-const UW_Y = -78, UW_LIMIT = -30, UW_HALF = 240;
 
 // ---------- Biomes ----------
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -63,8 +62,6 @@ const BIOME_TEMPS = ['Frozen', 'Cold', 'Temperate', 'Warm', 'Scorching'];
 const BIOME_MOISTS = ['Barren', 'Arid', 'Fertile', 'Lush', 'Drenched'];
 const BIOME_ELEVS = ['Flats', 'Plains', 'Hills', 'Highlands', 'Peaks'];
 function biomeName(x, z, y) {
-  if (y !== undefined && y < UW_LIMIT) return 'Underworld';
-  if (y !== undefined && y > 120) return 'Sky Realm';
   if (cityMask(x, z) > 0.5) return 'Urban';
   const h = countrysideHeight(x, z);
   if (h < WATER_Y + 0.9) return 'Coastal Beach';
@@ -76,11 +73,12 @@ function biomeName(x, z, y) {
 
 // ---------- Terrain ----------
 function countrysideHeight(x, z) {
-  let h = 3;
-  h += Math.sin(x * 0.018) * Math.cos(z * 0.020) * 7.0;
-  h += Math.sin(x * 0.050 + 3.1) * Math.cos(z * 0.041 + 1.3) * 2.5;
-  h += Math.sin(x * 0.110 + 7.0) * Math.cos(z * 0.130 + 2.2) * 0.8;
-  return h;
+  let h = 1.5;
+  h += Math.sin(x * 0.012 + 0.5) * Math.cos(z * 0.014 + 1.2) * 9.0;
+  h += Math.sin(x * 0.025 + 3.1) * Math.cos(z * 0.022 + 0.7) * 4.5;
+  h += Math.sin(x * 0.055 + 7.0) * Math.cos(z * 0.048 + 2.2) * 2.0;
+  h += Math.sin(x * 0.110 + 1.3) * Math.cos(z * 0.095 + 4.1) * 0.6;
+  return Math.max(0.2, h);
 }
 function cityMask(x, z) {
   const dx = Math.max(0, Math.abs(x) - 195), dz = Math.max(0, Math.abs(z) - 195);
@@ -763,128 +761,9 @@ const clouds = [];
   }
 }
 
-// ---------- Sky Realm ----------
-const islands = [];
-{
-  const rockMat = lambert(0x77705f);
-  const grassMat = lambert(0x58a344);
-  const defs = [
-    { x: -60, z: -300, r: 42, y: 200 },
-    { x: 10, z: -260, r: 30, y: 192 },
-    { x: 70, z: -300, r: 26, y: 183 },
-    { x: 130, z: -260, r: 24, y: 173 },
-    { x: 190, z: -300, r: 30, y: 162 },
-  ];
-  for (const d of defs) {
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(d.r, d.r * 0.25, 16, 18), rockMat);
-    body.position.set(d.x, d.y - 8, d.z); body.castShadow = true;
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(d.r, d.r, 1.2, 18), grassMat);
-    top.position.set(d.x, d.y + 0.3, d.z); top.receiveShadow = true;
-    scene.add(body, top);
-    islands.push({ x: d.x, z: d.z, r: d.r, topY: d.y + 0.9 });
-    for (let i = 0; i < Math.floor(d.r / 8); i++) {
-      const a = Math.random() * Math.PI * 2, rr = Math.random() * (d.r - 6);
-      addTree(d.x + Math.cos(a) * rr, d.y + 0.9, d.z + Math.sin(a) * rr, 0.7 + Math.random() * 0.6, 'broadleaf');
-    }
-  }
-}
-
-// ---------- Underworld ----------
-function uwFloorHeight(x, z) {
-  let h = UW_Y;
-  h += Math.sin(x * 0.05 + 1) * Math.cos(z * 0.06 + 2) * 2.5;
-  h += Math.sin(x * 0.15) * Math.cos(z * 0.11) * 0.8;
-  const edge = Math.max(Math.abs(x), Math.abs(z));
-  if (edge > UW_HALF - 30) h += (edge - (UW_HALF - 30)) * 1.6;
-  return h;
-}
-const lavaPools = [];
-{
-  const geo = new THREE.PlaneGeometry(UW_HALF * 2, UW_HALF * 2, 110, 110);
-  geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position;
-  const colors = [];
-  const dark = srgb(0x3d3733), darker = srgb(0x2a2522), ember = srgb(0x5a3428);
-  const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i);
-    pos.setY(i, uwFloorHeight(x, z));
-    c.copy(dark).lerp(darker, Math.random() * 0.5);
-    if (Math.sin(x * 0.05 + 1) * Math.cos(z * 0.06 + 2) < -0.55) c.lerp(ember, 0.5);
-    colors.push(c.r, c.g, c.b);
-  }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geo.computeVertexNormals();
-  const floor = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
-  scene.add(floor);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(UW_HALF * 2, UW_HALF * 2), lambert(0x241f1d));
-  ceil.rotation.x = Math.PI / 2; ceil.position.y = -36; scene.add(ceil);
-  const lavaMat = new THREE.MeshBasicMaterial({ color: srgb(0xff5a1f) });
-  const spots = [[60, 40, 14], [-80, -60, 18], [100, -110, 12], [-140, 90, 15], [0, 150, 12], [-40, -170, 10]];
-  for (const [lx, lz, lr] of spots) {
-    const p = new THREE.Mesh(new THREE.CircleGeometry(lr, 24), lavaMat);
-    p.rotation.x = -Math.PI / 2; p.position.set(lx, uwFloorHeight(lx, lz) + 0.15, lz);
-    scene.add(p);
-    lavaPools.push({ x: lx, z: lz, r: lr });
-  }
-  const crystalGeoA = new THREE.OctahedronGeometry(1.6);
-  for (let i = 0; i < 50; i++) {
-    const x = (Math.random() - 0.5) * (UW_HALF * 2 - 70);
-    const z = (Math.random() - 0.5) * (UW_HALF * 2 - 70);
-    const mat = new THREE.MeshLambertMaterial({
-      color: srgb(0x223344),
-      emissive: srgb(Math.random() < 0.5 ? 0x37d7e8 : 0xb45cf0),
-      emissiveIntensity: 1.2,
-    });
-    const cr = new THREE.Mesh(crystalGeoA, mat);
-    cr.position.set(x, Math.random() < 0.3 ? -37 : uwFloorHeight(x, z) + 1.2, z);
-    cr.scale.setScalar(0.6 + Math.random() * 1.6);
-    cr.rotation.set(Math.random(), Math.random(), Math.random());
-    scene.add(cr);
-  }
-  const pillarMat = lambert(0x35302c);
-  for (let i = 0; i < 12; i++) {
-    const x = (Math.random() - 0.5) * (UW_HALF * 2 - 90);
-    const z = (Math.random() - 0.5) * (UW_HALF * 2 - 90);
-    if (Math.abs(x) < 25 && Math.abs(z) < 25) continue;
-    const r = 2.5 + Math.random() * 2;
-    const pil = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.3, 46, 10), pillarMat);
-    pil.position.set(x, -58, z);
-    scene.add(pil);
-    pillarObstacles.push({ x, z, r: r * 1.2 });
-  }
-}
-
-// ---------- Portals ----------
-const portals = [];
-function addPortal(x, y, z, dest, colorHex, label) {
-  const g = new THREE.Group();
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(4, 0.4, 10, 32),
-    new THREE.MeshLambertMaterial({ color: srgb(0x111111), emissive: srgb(colorHex), emissiveIntensity: 1.6 }));
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(3.6, 24),
-    new THREE.MeshBasicMaterial({ color: srgb(colorHex), transparent: true, opacity: 0.28, side: THREE.DoubleSide }));
-  g.add(ring, disc);
-  g.position.set(x, y + 4.2, z);
-  scene.add(g);
-  portals.push({ mesh: g, x, y: y + 4.2, z, dest, label });
-}
-{
-  const p1y = surfaceGroundY(230, 60);
-  addPortal(230, p1y, 60, { x: 0, y: null, z: 0, heading: Math.PI / 2, uw: true }, 0xb45cf0, 'Underworld');
-  addPortal(0, uwFloorHeight(0, 0), 0, { x: 218, y: null, z: 60, heading: -Math.PI / 2 }, 0x37d7e8, 'Surface');
-  const p3y = surfaceGroundY(-230, -60);
-  addPortal(-230, p3y, -60, { x: -60, y: 201.5, z: -300, heading: Math.PI / 2 }, 0x4dd2ff, 'Sky Realm');
-  addPortal(-60, islands[0].topY, -280, { x: -218, y: null, z: -60, heading: Math.PI / 2 }, 0xffc94d, 'Surface');
-}
-
 // ---------- Ground query ----------
 function groundAt(x, z, y) {
-  if (y < UW_LIMIT) return uwFloorHeight(x, z);
   let g = surfaceGroundY(x, z);
-  for (const isl of islands) {
-    const dx = x - isl.x, dz = z - isl.z;
-    if (dx * dx + dz * dz < isl.r * isl.r * 0.92 && y >= isl.topY - 1.5 && isl.topY > g) g = isl.topY;
-  }
   for (const b of buildingAABBs) {
     if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && y >= b.topY - 0.7 && b.topY > g) g = b.topY;
   }
@@ -900,12 +779,6 @@ function groundAt(x, z, y) {
   return g;
 }
 function groundNormalAt(x, z, y) {
-  if (y < UW_LIMIT) {
-    const e = 0.6;
-    return new THREE.Vector3(
-      uwFloorHeight(x - e, z) - uwFloorHeight(x + e, z), 2 * e,
-      uwFloorHeight(x, z - e) - uwFloorHeight(x, z + e)).normalize();
-  }
   if (inCity(x, z) || groundAt(x, z, y) !== surfaceGroundY(x, z)) return new THREE.Vector3(0, 1, 0);
   return terrainNormal(x, z);
 }

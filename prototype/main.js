@@ -449,7 +449,7 @@ function updateCar(dt) {
     const n = groundNormalAt(s.pos.x, s.pos.z, s.pos.y);
     s.vel.x += n.x * 20 * dt;
     s.vel.z += n.z * 20 * dt;
-    if (!inCity(s.pos.x, s.pos.z) && s.pos.y < WATER_Y + 0.3 && s.pos.y > UW_LIMIT) vF *= 1 - 2.2 * dt;
+    if (!inCity(s.pos.x, s.pos.z) && s.pos.y < WATER_Y + 0.3) vF *= 1 - 2.2 * dt;
   } else {
     s.heading += steer * spec.turn * 0.25 * dt;
   }
@@ -461,14 +461,12 @@ function updateCar(dt) {
   s.vel.y = vy - 25 * dt;
 
   s.pos.addScaledVector(s.vel, dt);
-  const bound = s.pos.y < UW_LIMIT ? UW_HALF - 6 : MAP / 2 - 15;
-  s.pos.x = Math.max(-bound, Math.min(bound, s.pos.x));
-  s.pos.z = Math.max(-bound, Math.min(bound, s.pos.z));
+  s.pos.x = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, s.pos.x));
+  s.pos.z = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, s.pos.z));
 
   aabbCollide(s, 1.3);
   circlePush(s, treeObstacles, 1.2, s.pos.y > 100 ? undefined : 20);
   circlePush(s, rockObstacles, 1.0, s.pos.y > 100 ? undefined : 20);
-  if (s.pos.y < UW_LIMIT) circlePush(s, pillarObstacles, 1.3);
   for (const c of aiCars) {
     const dx = s.pos.x - c.group.position.x, dz = s.pos.z - c.group.position.z;
     const d2 = dx * dx + dz * dz;
@@ -476,7 +474,36 @@ function updateCar(dt) {
       const d = Math.sqrt(d2), push = 2.7 - d;
       s.pos.x += (dx / d) * push;
       s.pos.z += (dz / d) * push;
-      s.vel.multiplyScalar(0.6);
+      s.vel.multiplyScalar(0.4);
+    }
+  }
+  for (const c of copCars) {
+    if (!c.active) continue;
+    const dx = s.pos.x - c.group.position.x, dz = s.pos.z - c.group.position.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < 7.3 && d2 > 0.0001 && Math.abs(s.pos.y - CITY_Y) < 3) {
+      const d = Math.sqrt(d2), push = 2.7 - d;
+      s.pos.x += (dx / d) * push;
+      s.pos.z += (dz / d) * push;
+      s.vel.multiplyScalar(0.3);
+    }
+  }
+  const kmhNow = Math.abs(s.vel.dot(_fwd)) * 3.6;
+  for (const p of peds) {
+    if (!p.wx) continue;
+    const dx = s.pos.x - p.wx, dz = s.pos.z - p.wz;
+    if (dx * dx + dz * dz < 1.8 && Math.abs(s.pos.y - CITY_Y) < 2) {
+      if (kmhNow > 5) {
+        s.vel.multiplyScalar(0.05);
+        wantedLevel = Math.min(5, wantedLevel + 2);
+        if (typeof toast === 'function') toast('Hit a pedestrian! Wanted level: ' + wantedLevel);
+        s.pos.set(-150, CITY_Y, 3);
+        s.vel.set(0, 0, 0);
+        s.heading = Math.PI / 2;
+        car.position.copy(s.pos);
+        camera.position.set(-158, CITY_Y + 3.5, 3);
+      }
+      break;
     }
   }
 
@@ -485,17 +512,6 @@ function updateCar(dt) {
     if (s.vel.y < -16) s.vel.multiplyScalar(0.6);
     s.pos.y = g; s.vel.y = 0; s.grounded = true;
   } else s.grounded = s.pos.y - g < 0.15;
-
-  if (s.pos.y < UW_LIMIT) {
-    for (const lp of lavaPools) {
-      const dx = s.pos.x - lp.x, dz = s.pos.z - lp.z;
-      if (dx * dx + dz * dz < lp.r * lp.r) {
-        s.pos.set(0, uwFloorHeight(0, 0), 10); s.vel.set(0, 0, 0);
-        toast('Vehicle recovered');
-        break;
-      }
-    }
-  }
 
   if (s.grounded) _up.copy(groundNormalAt(s.pos.x, s.pos.z, s.pos.y));
   else _up.lerp(new THREE.Vector3(0, 1, 0), Math.min(1, dt * 2)).normalize();
@@ -561,30 +577,6 @@ function updateFlyCamera(dt) {
   camera.position.y = Math.max(camera.position.y, groundAt(camera.position.x, camera.position.z, camera.position.y) + 1);
 }
 
-// ---------- Portals ----------
-let portalCooldown = 0;
-function updatePortals(dt) {
-  portalCooldown -= dt;
-  const p = playerPos();
-  for (const pt of portals) {
-    pt.mesh.rotation.y += dt * 0.8;
-    if (portalCooldown > 0) continue;
-    const dx = p.x - pt.x, dy = p.y + 2 - pt.y, dz = p.z - pt.z;
-    if (dx * dx + dz * dz < 20 && Math.abs(dy) < 6) {
-      const d = pt.dest;
-      const y = d.uw ? uwFloorHeight(d.x, d.z) : (d.y !== null ? d.y : surfaceGroundY(d.x, d.z));
-      carState.pos.set(d.x, y, d.z);
-      carState.vel.set(0, 0, 0);
-      carState.heading = d.heading;
-      car.position.copy(carState.pos);
-      camera.position.set(d.x - Math.sin(d.heading) * 8, y + 4, d.z - Math.cos(d.heading) * 8);
-      portalCooldown = 3;
-      toast('Entering: ' + pt.label);
-      break;
-    }
-  }
-}
-
 // ---------- Headlights ----------
 let headlightsOn = false;
 function toggleHeadlights() {
@@ -592,11 +584,43 @@ function toggleHeadlights() {
   toast(headlightsOn ? 'Headlights on' : 'Headlights off');
 }
 
-// ---------- Speed limit & guidance ----------
+// ---------- Speed limit & wanted system ----------
 let nearestSpeedLimit = 50;
+let redLightViolationTimer = 0;
+let wantedDecayTimer = 0;
 function checkSpeedGuidance() {
   const kmh = Math.abs(carState.vel.dot(_fwd2(carState.heading))) * 3.6;
   if (kmh > 55 && Math.random() < 0.01) showGuidance('Slow down! Speed limit is 50 km/h', 2500);
+  if (kmh > 65) {
+    if (Math.random() < 0.003) {
+      wantedLevel = Math.min(5, wantedLevel + 1);
+      if (typeof toast === 'function') toast('Speeding! Wanted level: ' + wantedLevel);
+    }
+  }
+  let nearRed = false;
+  for (const tl of trafficLights) {
+    if (tl.state !== 'red') continue;
+    const tDist = Math.hypot(tl.x - carState.pos.x, tl.z - carState.pos.z);
+    if (tDist < 15 && kmh > 8) nearRed = true;
+  }
+  if (nearRed) {
+    redLightViolationTimer += 1 / 60;
+    if (redLightViolationTimer > 1.5) {
+      redLightViolationTimer = 0;
+      wantedLevel = Math.min(5, wantedLevel + 1);
+      if (typeof toast === 'function') toast('Ran a red light! Wanted level: ' + wantedLevel);
+    }
+  } else {
+    redLightViolationTimer = Math.max(0, redLightViolationTimer - 1 / 60);
+  }
+  if (wantedLevel > 0) {
+    wantedDecayTimer += 1 / 60;
+    if (wantedDecayTimer > 15) {
+      wantedDecayTimer = 0;
+      wantedLevel = Math.max(0, wantedLevel - 1);
+      if (typeof toast === 'function') toast('Wanted level: ' + wantedLevel);
+    }
+  }
 }
 
 // ---------- Day / night ----------
@@ -691,10 +715,12 @@ function drawMinimap() {
   for (const c of aiCars) {
     mmCtx.fillRect(S / 2 + c.group.position.x * sc - 1.5, S / 2 - c.group.position.z * sc - 1.5, 3, 3);
   }
-  for (const pt of portals) {
-    if (pt.y < 0 || pt.y > 100) continue;
-    mmCtx.fillStyle = '#b45cf0';
-    mmCtx.fillRect(S / 2 + pt.x * sc - 2, S / 2 - pt.z * sc - 2, 4, 4);
+  if (wantedLevel >= 2) {
+    mmCtx.fillStyle = '#ff3333';
+    for (const c of copCars) {
+      if (!c.active) continue;
+      mmCtx.fillRect(S / 2 + c.group.position.x * sc - 2, S / 2 - c.group.position.z * sc - 2, 4, 4);
+    }
   }
   const heading = carState.heading;
   const px = Math.max(5, Math.min(S - 5, S / 2 + carState.pos.x * sc));
@@ -830,7 +856,7 @@ function tick(now) {
     updatePrecip(dt);
     updateAudio(dt);
     updateDayNight(dt);
-    updatePortals(dt);
+    updateCops(dt);
     updateGuidance(dt);
     updateTrafficLightHud();
     checkSpeedGuidance();
@@ -844,7 +870,15 @@ function tick(now) {
 
     const p = playerPos();
     $('hudBiome').textContent = biomeName(p.x, p.z, p.y);
-    $('hudZone').textContent = p.y < UW_LIMIT ? 'Underworld' : p.y > 120 ? 'Sky Realm' : 'City Center';
+    $('hudZone').textContent = 'City Center';
+
+    if (wantedLevel > 0) {
+      const stars = '★'.repeat(wantedLevel) + '☆'.repeat(5 - wantedLevel);
+      $('hudZone').textContent = 'WANTED ' + stars;
+      $('hudZone').style.color = '#ff4444';
+    } else {
+      $('hudZone').style.color = '';
+    }
 
     drawMinimap();
   } else {

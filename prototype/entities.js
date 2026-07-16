@@ -407,11 +407,138 @@ function updatePeds(dt) {
     else { x = -22.5; z = -u; h = Math.PI; }
     const bounce = Math.abs(Math.sin(p.t * 6)) * 0.04;
     p.g.position.set(p.bx + x, CITY_Y + 0.3 + bounce, p.bz + z);
+    p.wx = p.bx + x;
+    p.wz = p.bz + z;
     p.g.rotation.y = h;
     if (p.g.userData.legL) {
       const sw = Math.sin(p.t * p.speed * 2) * 0.5;
       p.g.userData.legL.rotation.x = sw;
       p.g.userData.legR.rotation.x = -sw;
     }
+  }
+}
+
+// ---------- Cop cars ----------
+const copCars = [];
+let wantedLevel = 0;
+let copCooldown = 0;
+function buildCopCar() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 4.0), standard(0x1a1a2e, 0.4, 0.5));
+  body.position.y = 0.68; body.castShadow = true;
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.45, 1.8), lambert(0x20242b));
+  cabin.position.set(0, 1.15, -0.2);
+  const liteGeo = new THREE.BoxGeometry(0.3, 0.12, 0.08);
+  [[-0.6, 2.01, headLightMat], [0.6, 2.01, headLightMat],
+   [-0.6, -2.01, tailLightMat], [0.6, -2.01, tailLightMat]].forEach(([x, z, m]) => {
+    const l = new THREE.Mesh(liteGeo, m);
+    l.position.set(x, 0.72, z); g.add(l);
+  });
+  const barGeo = new THREE.BoxGeometry(1.2, 0.12, 0.3);
+  const barMat = new THREE.MeshBasicMaterial({ color: 0x222244 });
+  const bar = new THREE.Mesh(barGeo, barMat);
+  bar.position.set(0, 1.42, -0.1);
+  const sirenL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), new THREE.MeshBasicMaterial({ color: 0x0044ff }));
+  sirenL.position.set(-0.4, 1.52, -0.1);
+  const sirenR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff2200 }));
+  sirenR.position.set(0.4, 1.52, -0.1);
+  g.add(body, cabin, bar, sirenL, sirenR);
+  const parts = buildWheels(g, 0.98, 1.3, -1.35, 0.36);
+  g.userData.wheels = parts.wheels;
+  g.userData.sirenL = sirenL;
+  g.userData.sirenR = sirenR;
+  return g;
+}
+function spawnCop() {
+  const dir = Math.floor(Math.random() * 4);
+  const road = ROADS[Math.floor(Math.random() * ROADS.length)];
+  const s = (Math.random() - 0.5) * 300;
+  const nI = nextIntersection(s, dir);
+  if (nI === null) return;
+  const group = buildCopCar();
+  const c = {
+    dir, road, s, nextI: nI,
+    speed: 0, targetSpeed: 14,
+    heading: dirAngle[dir], spin: 0,
+    group, wheels: group.userData.wheels,
+    pos: new THREE.Vector3(),
+    chasing: true, active: true,
+    sirenL: group.userData.sirenL,
+    sirenR: group.userData.sirenR,
+  };
+  const p = aiXZ(c);
+  c.pos.set(p.x, CITY_Y, p.z);
+  group.position.copy(c.pos);
+  group.rotation.y = c.heading;
+  scene.add(group);
+  copCars.push(c);
+}
+function updateCops(dt) {
+  copCooldown -= dt;
+  for (const c of copCars) {
+    if (!c.active) continue;
+    const dx = carState.pos.x - c.group.position.x;
+    const dz = carState.pos.z - c.group.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (wantedLevel >= 2 && dist > 200) {
+      c.active = false;
+      scene.remove(c.group);
+      continue;
+    }
+    if (wantedLevel >= 2 && dist > 40) {
+      const angle = Math.atan2(dx, dz);
+      let dh = angle - c.heading;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      c.heading += dh * Math.min(1, dt * 2.5);
+      c.targetSpeed = Math.min(22, 8 + wantedLevel * 4);
+    } else if (dist < 8 && wantedLevel >= 2 && copCooldown <= 0) {
+      carState.vel.multiplyScalar(0.2);
+      wantedLevel = Math.max(0, wantedLevel - 1);
+      copCooldown = 3;
+      if (typeof toast === 'function') toast('Pulled over! Wanted level decreased.');
+    } else {
+      const fx = Math.sin(c.heading), fz = Math.cos(c.heading);
+      let blocked = 0;
+      for (const o of aiCars) {
+        const odx = o.group.position.x - c.group.position.x;
+        const odz = o.group.position.z - c.group.position.z;
+        const proj = odx * fx + odz * fz;
+        if (proj > 1 && proj < 12 && Math.abs(odx * fz - odz * fx) < 2.6) blocked = 1;
+      }
+      c.targetSpeed = blocked ? 2 : 10;
+    }
+    const fx = Math.sin(c.heading), fz = Math.cos(c.heading);
+    let shouldStop = false;
+    for (const tl of trafficLights) {
+      if (tl.state === 'red' || tl.state === 'yellow') {
+        const tDist = Math.hypot(tl.x - c.group.position.x, tl.z - c.group.position.z);
+        if (tDist < tl.redDist && tl.state === 'red') shouldStop = true;
+        if (tDist < tl.yellowDist && tl.state === 'yellow') shouldStop = true;
+      }
+    }
+    const want = shouldStop ? 0 : c.targetSpeed;
+    c.speed += (want - c.speed) * Math.min(1, dt * (want < c.speed ? 6 : 1.2));
+    c.s += dirSign[c.dir] * c.speed * dt;
+    if (dirSign[c.dir] > 0 ? c.s >= c.nextI : c.s <= c.nextI) aiDecide(c);
+    const p = aiXZ(c);
+    c.pos.set(p.x, CITY_Y, p.z);
+    c.group.position.lerp(c.pos, Math.min(1, dt * 4));
+    let dh = dirAngle[c.dir] - c.heading;
+    while (dh > Math.PI) dh -= Math.PI * 2;
+    while (dh < -Math.PI) dh += Math.PI * 2;
+    c.heading += dh * Math.min(1, dt * 5);
+    c.group.rotation.y = c.heading;
+    c.spin += c.speed * dt / 0.36;
+    c.wheels.forEach(w => { w.rotation.x = c.spin; });
+    if (wantedLevel >= 2) {
+      const flash = Math.sin(performance.now() * 0.01) > 0;
+      c.sirenL.material.color.set(flash ? 0x0066ff : 0x001133);
+      c.sirenR.material.color.set(flash ? 0xff3300 : 0x330000);
+    }
+  }
+  if (wantedLevel >= 2 && copCars.filter(c => c.active).length < 2 && copCooldown <= 0) {
+    spawnCop();
+    copCooldown = 5;
   }
 }
