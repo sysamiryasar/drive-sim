@@ -359,14 +359,8 @@ function updateTrafficLights(dt) {
       else { tl.state = 'green'; tl.timer = 15 + Math.random() * 10; }
     }
     tl.rMat.color.set(tl.state === 'red' ? 0xff2222 : 0x330000);
-    tl.rMat.emissive.set(tl.state === 'red' ? 0xff2222 : 0x000000);
-    tl.rMat.emissiveIntensity = tl.state === 'red' ? 1.5 : 0;
     tl.yMat.color.set(tl.state === 'yellow' ? 0xffaa00 : 0x332200);
-    tl.yMat.emissive.set(tl.state === 'yellow' ? 0xffaa00 : 0x000000);
-    tl.yMat.emissiveIntensity = tl.state === 'yellow' ? 1.5 : 0;
     tl.gMat.color.set(tl.state === 'green' ? 0x22ff22 : 0x003300);
-    tl.gMat.emissive.set(tl.state === 'green' ? 0x22ff22 : 0x000000);
-    tl.gMat.emissiveIntensity = tl.state === 'green' ? 1.5 : 0;
   }
 }
 function getNearestTrafficLight() {
