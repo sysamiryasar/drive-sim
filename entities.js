@@ -480,19 +480,19 @@ function updateCops(dt) {
     const dx = carState.pos.x - c.group.position.x;
     const dz = carState.pos.z - c.group.position.z;
     const dist = Math.hypot(dx, dz);
-    if (wantedLevel >= 2 && dist > 200) {
+    if (wantedLevel >= 1 && dist > 250) {
       c.active = false;
       scene.remove(c.group);
       continue;
     }
-    if (wantedLevel >= 2 && dist > 40) {
+    if (wantedLevel >= 1 && dist > 40) {
       const angle = Math.atan2(dx, dz);
       let dh = angle - c.heading;
       while (dh > Math.PI) dh -= Math.PI * 2;
       while (dh < -Math.PI) dh += Math.PI * 2;
       c.heading += dh * Math.min(1, dt * 2.5);
-      c.targetSpeed = Math.min(22, 8 + wantedLevel * 4);
-    } else if (dist < 8 && wantedLevel >= 2 && copCooldown <= 0) {
+      c.targetSpeed = Math.min(22 + wantedLevel * 5, 12 + wantedLevel * 6);
+    } else if (dist < 8 && wantedLevel >= 1 && copCooldown <= 0) {
       carState.vel.multiplyScalar(0.2);
       wantedLevel = Math.max(0, wantedLevel - 1);
       copCooldown = 3;
@@ -508,6 +508,11 @@ function updateCops(dt) {
       }
       c.targetSpeed = blocked ? 2 : 10;
     }
+    if (wantedLevel >= 3 && dist < 22 && dist > 5 && !c.shootCooldown) {
+      spawnBullet(c.group.position.x, c.group.position.z, carState.pos.x, carState.pos.z);
+      c.shootCooldown = Math.max(0.3, 2.0 - wantedLevel * 0.15);
+    }
+    if (c.shootCooldown) c.shootCooldown = Math.max(0, c.shootCooldown - dt);
     const fx = Math.sin(c.heading), fz = Math.cos(c.heading);
     let shouldStop = false;
     for (const tl of trafficLights) {
@@ -531,14 +536,431 @@ function updateCops(dt) {
     c.group.rotation.y = c.heading;
     c.spin += c.speed * dt / 0.36;
     c.wheels.forEach(w => { w.rotation.x = c.spin; });
-    if (wantedLevel >= 2) {
+    if (wantedLevel >= 1) {
       const flash = Math.sin(performance.now() * 0.01) > 0;
       c.sirenL.material.color.set(flash ? 0x0066ff : 0x001133);
       c.sirenR.material.color.set(flash ? 0xff3300 : 0x330000);
     }
   }
-  if (wantedLevel >= 2 && copCars.filter(c => c.active).length < 2 && copCooldown <= 0) {
+  const maxCops = Math.min(8, 1 + Math.floor(wantedLevel / 1.5));
+  if (wantedLevel >= 1 && copCars.filter(c => c.active).length < maxCops && copCooldown <= 0) {
     spawnCop();
-    copCooldown = 5;
+    copCooldown = Math.max(0.5, 4 - wantedLevel * 0.35);
   }
+}
+
+// ---------- Player health ----------
+let playerHealth = 100;
+const playerMaxHealth = 100;
+let damageFlashTimer = 0;
+let bustedTimer = 0;
+
+function damagePlayer(amount, source) {
+  if (bustedTimer > 0) return;
+  playerHealth = Math.max(0, playerHealth - amount);
+  damageFlashTimer = 0.35;
+  if (typeof toast === 'function') toast(source + '! -' + amount + ' HP');
+  if (playerHealth <= 0) {
+    bustedTimer = 3;
+    wantedLevel = 0;
+    if (typeof toast === 'function') toast('BUSTED!');
+  }
+}
+
+function respawnPlayer() {
+  playerHealth = playerMaxHealth;
+  carState.pos.set(-150, CITY_Y, 3);
+  carState.vel.set(0, 0, 0);
+  carState.heading = Math.PI / 2;
+  if (car) car.position.copy(carState.pos);
+}
+
+// ---------- Bullets ----------
+const bullets = [];
+const BULLET_SPEED = 55;
+const BULLET_LIFE = 2.5;
+const bulletGeo = new THREE.SphereGeometry(0.08, 4, 3);
+const bulletMat = new THREE.MeshBasicMaterial({ color: 0xff8800 });
+
+function spawnBullet(fromX, fromZ, toX, toZ) {
+  const dx = toX - fromX, dz = toZ - fromZ;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.1) return;
+  const vx = (dx / len) * BULLET_SPEED;
+  const vz = (dz / len) * BULLET_SPEED;
+  const mesh = new THREE.Mesh(bulletGeo, bulletMat);
+  mesh.position.set(fromX, CITY_Y + 1.2, fromZ);
+  scene.add(mesh);
+  const glow = new THREE.PointLight(0xff6600, 1, 8);
+  mesh.add(glow);
+  bullets.push({ mesh, vx, vz, life: BULLET_LIFE });
+}
+
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.life -= dt;
+    if (b.life <= 0) { removeBullet(i); continue; }
+    b.mesh.position.x += b.vx * dt;
+    b.mesh.position.z += b.vz * dt;
+    const dx = b.mesh.position.x - carState.pos.x;
+    const dz = b.mesh.position.z - carState.pos.z;
+    if (dx * dx + dz * dz < 2.2 && Math.abs(carState.pos.y - CITY_Y) < 3) {
+      damagePlayer(8 + Math.floor(Math.random() * 8), 'Police gunfire');
+      removeBullet(i);
+    }
+  }
+}
+
+function removeBullet(i) {
+  scene.remove(bullets[i].mesh);
+  bullets.splice(i, 1);
+}
+
+// ---------- Roadblocks ----------
+const roadblocks = [];
+
+function spawnRoadblock() {
+  const road = ROADS[Math.floor(Math.random() * ROADS.length)];
+  const s = (Math.random() - 0.5) * 200;
+  const horizontal = Math.random() < 0.5;
+  const angle = horizontal ? 0 : Math.PI / 2;
+  const g = new THREE.Group();
+  const barrier = new THREE.Mesh(
+    new THREE.BoxGeometry(6, 0.8, 0.4),
+    new THREE.MeshLambertMaterial({ color: 0xff6600 })
+  );
+  barrier.position.y = 0.4;
+  const stripes = new THREE.Mesh(
+    new THREE.BoxGeometry(6, 0.3, 0.42),
+    new THREE.MeshLambertMaterial({ color: 0xffffff })
+  );
+  stripes.position.y = 0.55;
+  const coneGeo = new THREE.ConeGeometry(0.2, 0.6, 6);
+  const coneMat = new THREE.MeshLambertMaterial({ color: 0xff4400 });
+  const coneL = new THREE.Mesh(coneGeo, coneMat);
+  coneL.position.set(-3, 0.3, 0);
+  const coneR = new THREE.Mesh(coneGeo, coneMat);
+  coneR.position.set(3, 0.3, 0);
+  g.add(barrier, stripes, coneL, coneR);
+  const x = horizontal ? s : road;
+  const z = horizontal ? road : s;
+  g.position.set(x, CITY_Y, z);
+  g.rotation.y = angle;
+  scene.add(g);
+  roadblocks.push({ x, z, r: 3.5, group: g, timer: 25 });
+}
+
+function updateRoadblocks(dt) {
+  for (let i = roadblocks.length - 1; i >= 0; i--) {
+    const rb = roadblocks[i];
+    rb.timer -= dt;
+    if (rb.timer <= 0) { scene.remove(rb.group); roadblocks.splice(i, 1); continue; }
+    const dx = carState.pos.x - rb.x, dz = carState.pos.z - rb.z;
+    if (dx * dx + dz * dz < rb.r * rb.r && Math.abs(carState.pos.y - CITY_Y) < 3) {
+      carState.vel.multiplyScalar(0.15);
+      damagePlayer(15, 'Roadblock collision');
+      scene.remove(rb.group);
+      roadblocks.splice(i, 1);
+    }
+  }
+}
+
+// ---------- Spike strips ----------
+const spikeStrips = [];
+let gripPenaltyTimer = 0;
+
+function spawnSpikeStrip() {
+  const road = ROADS[Math.floor(Math.random() * ROADS.length)];
+  const offset = carState.pos.x + (Math.random() - 0.5) * 80;
+  const horizontal = Math.random() < 0.5;
+  const angle = horizontal ? 0 : Math.PI / 2;
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 0.1, 0.6),
+    new THREE.MeshLambertMaterial({ color: 0x888888 })
+  );
+  const spikeGeo = new THREE.ConeGeometry(0.05, 0.25, 4);
+  const spikeMat = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+  for (let j = -2; j <= 2; j += 0.5) {
+    const spike = new THREE.Mesh(spikeGeo, spikeMat);
+    spike.position.set(j, 0.15, 0);
+    g.add(spike);
+  }
+  g.add(base);
+  const x = horizontal ? offset : road;
+  const z = horizontal ? road : offset;
+  g.position.set(x, CITY_Y, z);
+  g.rotation.y = angle;
+  scene.add(g);
+  spikeStrips.push({ x, z, r: 2.8, group: g, timer: 18 });
+}
+
+function updateSpikeStrips(dt) {
+  gripPenaltyTimer = Math.max(0, gripPenaltyTimer - dt);
+  for (let i = spikeStrips.length - 1; i >= 0; i--) {
+    const ss = spikeStrips[i];
+    ss.timer -= dt;
+    if (ss.timer <= 0) { scene.remove(ss.group); spikeStrips.splice(i, 1); continue; }
+    const dx = carState.pos.x - ss.x, dz = carState.pos.z - ss.z;
+    if (dx * dx + dz * dz < ss.r * ss.r && Math.abs(carState.pos.y - CITY_Y) < 3) {
+      gripPenaltyTimer = 8;
+      if (typeof toast === 'function') toast('Tires popped! Reduced control 8s');
+      scene.remove(ss.group);
+      spikeStrips.splice(i, 1);
+    }
+  }
+}
+
+// ---------- Helicopter ----------
+const helicopters = [];
+
+function buildHelicopter() {
+  const g = new THREE.Group();
+  const bodyMat = standard(0x1a2a1a, 0.4, 0.4);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 4.5), bodyMat);
+  body.position.y = 0; body.castShadow = true;
+  const glass = new THREE.Mesh(
+    new THREE.SphereGeometry(0.7, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0x334455, transparent: true, opacity: 0.5 })
+  );
+  glass.position.set(0, 0.2, 1.5); glass.rotation.x = -Math.PI / 6;
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 3.5), bodyMat);
+  tail.position.set(0, 0.3, -3.5);
+  const tailRotor = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.8, 0.05),
+    new THREE.MeshLambertMaterial({ color: 0x444444 })
+  );
+  tailRotor.position.set(0, 0.3, -5.2);
+  const bladeGeo = new THREE.BoxGeometry(7, 0.04, 0.35);
+  const bladeMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+  const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
+  blade1.position.set(0, 0.82, 0);
+  const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
+  blade2.position.set(0, 0.82, 0);
+  blade2.rotation.y = Math.PI / 2;
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.12, 0.15, 8),
+    new THREE.MeshLambertMaterial({ color: 0x333333 })
+  );
+  hub.position.set(0, 0.75, 0);
+  const skidGeo = new THREE.BoxGeometry(0.08, 0.08, 3.8);
+  const skidMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const skidL = new THREE.Mesh(skidGeo, skidMat); skidL.position.set(-0.9, -0.7, 0);
+  const skidR = new THREE.Mesh(skidGeo, skidMat); skidR.position.set(0.9, -0.7, 0);
+  const strutGeo = new THREE.BoxGeometry(0.06, 0.35, 0.06);
+  [[-0.9, 1.2], [-0.9, -0.8], [0.9, 1.2], [0.9, -0.8]].forEach(([x, z]) => {
+    const s = new THREE.Mesh(strutGeo, skidMat);
+    s.position.set(x, -0.5, z); g.add(s);
+  });
+  const lightL = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 6, 4),
+    new THREE.MeshBasicMaterial({ color: 0x0044ff })
+  );
+  lightL.position.set(-0.7, -0.5, 1.8);
+  const lightR = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 6, 4),
+    new THREE.MeshBasicMaterial({ color: 0xff2200 })
+  );
+  lightR.position.set(0.7, -0.5, 1.8);
+  g.add(body, glass, tail, tailRotor, hub, blade1, blade2, skidL, skidR, lightL, lightR);
+  g.userData = { blade1, blade2, lightL, lightR };
+  return g;
+}
+
+function spawnHelicopter() {
+  const group = buildHelicopter();
+  const angle = Math.random() * Math.PI * 2;
+  const h = {
+    group, active: true,
+    pos: new THREE.Vector3(
+      carState.pos.x + Math.cos(angle) * 60,
+      CITY_Y + 30,
+      carState.pos.z + Math.sin(angle) * 60
+    ),
+    orbitAngle: angle,
+    shootTimer: 0,
+  };
+  group.position.copy(h.pos);
+  scene.add(group);
+  helicopters.push(h);
+}
+
+function updateHelicopters(dt) {
+  for (let i = helicopters.length - 1; i >= 0; i--) {
+    const h = helicopters[i];
+    if (!h.active) { scene.remove(h.group); helicopters.splice(i, 1); continue; }
+    if (wantedLevel < 3) {
+      h.active = false;
+      scene.remove(h.group);
+      helicopters.splice(i, 1);
+      continue;
+    }
+    const dist = Math.hypot(carState.pos.x - h.pos.x, carState.pos.z - h.pos.z);
+    if (dist > 280 && wantedLevel < 7) {
+      h.active = false;
+      scene.remove(h.group);
+      helicopters.splice(i, 1);
+      continue;
+    }
+    h.orbitAngle += dt * (0.5 + wantedLevel * 0.08);
+    const orbitDist = 25 + (wantedLevel - 3) * 6;
+    const targetX = carState.pos.x + Math.cos(h.orbitAngle) * orbitDist;
+    const targetZ = carState.pos.z + Math.sin(h.orbitAngle) * orbitDist;
+    const targetY = CITY_Y + 28 + Math.sin(h.orbitAngle * 0.5) * 4;
+    h.pos.lerp(new THREE.Vector3(targetX, targetY, targetZ), dt * 1.8);
+    h.group.position.copy(h.pos);
+    const dx = carState.pos.x - h.group.position.x;
+    const dz = carState.pos.z - h.group.position.z;
+    h.group.rotation.y = Math.atan2(dx, dz);
+    h.group.userData.blade1.rotation.y += dt * 30;
+    h.group.userData.blade2.rotation.y += dt * 30;
+    const flash = Math.sin(performance.now() * 0.008) > 0;
+    h.group.userData.lightL.material.color.set(flash ? 0x0066ff : 0x001133);
+    h.group.userData.lightR.material.color.set(flash ? 0xff3300 : 0x330000);
+    if (wantedLevel >= 5) {
+      h.shootTimer -= dt;
+      if (h.shootTimer <= 0) {
+        h.shootTimer = Math.max(0.4, 1.5 - (wantedLevel - 5) * 0.15);
+        spawnBullet(h.pos.x, h.pos.z, carState.pos.x, carState.pos.z);
+      }
+    }
+  }
+  if (wantedLevel >= 4 && helicopters.length < Math.min(3, Math.floor(wantedLevel / 2))) {
+    spawnHelicopter();
+  }
+}
+
+// ---------- Flyable plane ----------
+let plane = null;
+let planeState = null;
+let inPlane = false;
+
+function buildPlane() {
+  const g = new THREE.Group();
+  const bodyMat = standard(0xd4d4d4, 0.3, 0.6);
+  const accentMat = standard(0xcc2222, 0.3, 0.5);
+  const darkMat = standard(0x222222, 0.6, 0.2);
+  const fuse = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 6.0), bodyMat);
+  fuse.position.y = 0; fuse.castShadow = true;
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 8), bodyMat);
+  nose.position.set(0, 0, 3.8); nose.rotation.x = Math.PI / 2;
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(10, 0.12, 1.6), bodyMat);
+  wing.position.set(0, 0.1, 0);
+  const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 1.2), accentMat);
+  tipL.position.set(-5.2, 0.1, 0);
+  const tipR = tipL.clone(); tipR.position.set(5.2, 0.1, 0);
+  const tailWing = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.1, 0.9), bodyMat);
+  tailWing.position.set(0, 0.4, -2.8);
+  const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1.0), accentMat);
+  tailFin.position.set(0, 1.0, -2.8);
+  const cockpit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0x4488aa, transparent: true, opacity: 0.5 })
+  );
+  cockpit.position.set(0, 0.6, 1.2);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.2, 8), darkMat);
+  hub.position.set(0, 0, 4.6); hub.rotation.x = Math.PI / 2;
+  const prop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.15), darkMat);
+  prop.position.set(0, 0, 4.7);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.15, 6.02), accentMat);
+  stripe.position.set(0, 0.35, 0);
+  const gearMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const wheelGeo = new THREE.SphereGeometry(0.15, 6, 4);
+  const gearGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.6, 6);
+  [[-1.5, -0.7, 0.8], [1.5, -0.7, 0.8], [0, -0.7, -2.2]].forEach(([x, y, z]) => {
+    const strut = new THREE.Mesh(gearGeo, gearMat);
+    strut.position.set(x, y + 0.3, z);
+    const wheel = new THREE.Mesh(wheelGeo, darkMat);
+    wheel.position.set(x, y, z);
+    g.add(strut, wheel);
+  });
+  g.add(fuse, nose, wing, tipL, tipR, tailWing, tailFin, cockpit, hub, prop, stripe);
+  g.userData = { prop };
+  return g;
+}
+
+function enterPlane() {
+  if (inPlane) return;
+  if (!plane) plane = buildPlane();
+  inPlane = true;
+  car.visible = false;
+  plane.visible = true;
+  plane.position.copy(carState.pos);
+  plane.rotation.set(0, carState.heading, 0);
+  scene.add(plane);
+  planeState = {
+    pos: carState.pos.clone(),
+    vel: new THREE.Vector3(0, 0, 0),
+    heading: carState.heading,
+    pitch: 0,
+    roll: 0,
+    throttle: 0.3,
+    altitude: carState.pos.y,
+    onGround: true,
+    speed: 0,
+  };
+  mode = 'fly';
+  camStyle = 'chase';
+  if (typeof toast === 'function') toast('Plane! W/S throttle, A/D pitch, Q/E roll');
+}
+
+function exitPlane() {
+  if (!inPlane) return;
+  inPlane = false;
+  plane.visible = false;
+  car.visible = true;
+  car.position.copy(carState.pos);
+  mode = 'drive';
+  if (typeof toast === 'function') toast('Back in car');
+}
+
+function updatePlane(dt) {
+  if (!planeState) return;
+  const ps = planeState;
+  ps.throttle = Math.max(0, Math.min(1, ps.throttle + input.moveZ * dt * 0.6));
+  const thrust = ps.throttle * 40;
+  const drag = 0.018 * ps.speed * ps.speed;
+  ps.speed += (thrust - drag) * dt;
+  ps.speed = Math.max(0, ps.speed);
+  const lift = ps.speed > 12 ? (ps.speed - 12) * 0.4 : 0;
+  const gravity = 8.5;
+  if (ps.onGround) {
+    ps.altitude = Math.max(0, ps.altitude);
+    ps.roll *= 0.92;
+    ps.pitch *= 0.92;
+    if (ps.speed > 30 && lift > gravity * 1.1) {
+      ps.onGround = false;
+      if (typeof toast === 'function') toast('Takeoff!');
+    }
+  } else {
+    ps.pitch += input.moveX * 2.0 * dt;
+    ps.pitch = Math.max(-0.7, Math.min(0.7, ps.pitch));
+    ps.roll += (keys['KeyQ'] ? 1 : keys['KeyE'] ? -1 : 0) * 2.8 * dt;
+    ps.roll = Math.max(-1.1, Math.min(1.1, ps.roll));
+    ps.altitude += (lift - gravity) * dt;
+    ps.altitude += -ps.pitch * ps.speed * 0.15 * dt;
+    ps.heading += ps.roll * 0.03 * dt * Math.max(1, ps.speed / 25);
+    if (ps.altitude <= 0) {
+      ps.altitude = 0;
+      ps.onGround = true;
+      if (ps.speed > 35 || Math.abs(ps.roll) > 0.4) {
+        damagePlayer(35, 'Crash landing');
+        ps.speed *= 0.3;
+        ps.roll = 0;
+        ps.pitch = 0;
+        if (typeof toast === 'function') toast('Hard landing!');
+      }
+    }
+  }
+  ps.pos.x += Math.sin(ps.heading) * ps.speed * dt;
+  ps.pos.z += Math.cos(ps.heading) * ps.speed * dt;
+  ps.pos.y = ps.altitude;
+  ps.pos.x = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, ps.pos.x));
+  ps.pos.z = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, ps.pos.z));
+  plane.position.copy(ps.pos);
+  plane.rotation.set(ps.pitch * 0.5, ps.heading, -ps.roll * 0.3);
+  if (plane.userData.prop) plane.userData.prop.rotation.z += ps.throttle * 45 * dt;
+  carState.pos.copy(ps.pos);
+  carState.heading = ps.heading;
 }

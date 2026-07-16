@@ -123,6 +123,55 @@
   #hudOverlay .row { margin: 2px 0; display: flex; justify-content: space-between; gap: 12px; }
   #hudOverlay b { color: #ffd166; font-weight: 600; }
 
+  /* ======================== HEALTH BAR ======================== */
+  #healthBar {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: none; width: 220px; height: 16px; border-radius: 8px;
+    background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
+    overflow: hidden;
+  }
+  #healthBar.active { display: block; }
+  #healthFill {
+    height: 100%; border-radius: 7px; background: #4caf50;
+    transition: width 0.3s, background 0.3s;
+  }
+  #healthLabel {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+
+  /* ======================== ALTITUDE ======================== */
+  #altitudeMeter {
+    position: fixed; top: 38px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: none; font-size: 13px; font-weight: 600; color: #4fc3f7;
+    background: rgba(0,0,0,0.6); border: 1px solid rgba(79,195,247,0.3);
+    border-radius: 6px; padding: 3px 12px;
+  }
+
+  /* ======================== DAMAGE FLASH ======================== */
+  #damageFlash {
+    position: fixed; inset: 0; z-index: 9;
+    pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(220,20,20,0.7) 100%);
+    transition: opacity 0.1s;
+  }
+
+  /* ======================== BUSTED SCREEN ======================== */
+  #bustedScreen {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    background: rgba(0,0,0,0.85);
+  }
+  #bustedScreen h1 {
+    font-size: 72px; font-weight: 900; letter-spacing: 12px; color: #ef5350;
+    text-shadow: 0 0 40px rgba(239,83,80,0.6);
+    animation: bustedPulse 1s ease-in-out infinite;
+  }
+  #bustedScreen p { font-size: 16px; color: #999; margin-top: 12px; }
+  @keyframes bustedPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
   /* ======================== MINIMAP ======================== */
   #minimap {
     position: fixed; top: 14px; right: 14px; z-index: 10; display: none;
@@ -269,6 +318,7 @@
       <div class="item"><kbd>Esc</kbd> Pause</div>
       <div class="item"><kbd>Shift</kbd> Nitro</div>
       <div class="item"><kbd>B</kbd> Build Mode</div>
+      <div class="item"><kbd>P</kbd> Enter Plane</div>
     </div>
   </div>
 </div>
@@ -285,6 +335,24 @@
   <div class="row"><span>Weather</span><b id="hudWeather">Clear</b></div>
   <div class="row"><span>Time</span><b id="hudClock">09:00</b></div>
   <div class="row"><span>Biome</span><b id="hudBiome">Urban</b></div>
+</div>
+
+<!-- ======================== HEALTH BAR ======================== -->
+<div id="healthBar" class="active">
+  <div id="healthFill" style="width:100%"></div>
+  <div id="healthLabel">100 HP</div>
+</div>
+
+<!-- ======================== ALTITUDE ======================== -->
+<div id="altitudeMeter"><span id="altitudeVal">0m</span></div>
+
+<!-- ======================== DAMAGE FLASH ======================== -->
+<div id="damageFlash"></div>
+
+<!-- ======================== BUSTED SCREEN ======================== -->
+<div id="bustedScreen">
+  <h1>BUSTED</h1>
+  <p>Respawning...</p>
 </div>
 
 <!-- ======================== DASHBOARD ======================== -->

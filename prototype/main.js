@@ -421,7 +421,8 @@ function updateCar(dt) {
   const spec = VEHICLES[carStyle];
   const throttle = input.moveZ;
   const steer = input.moveX;
-  const slip = Math.min(0.75, wet * 0.4 + snowF * 0.6);
+  const spikeSlip = gripPenaltyTimer > 0 ? 0.6 : 0;
+  const slip = Math.min(0.75, wet * 0.4 + snowF * 0.6 + spikeSlip);
   collisionCooldown -= dt;
 
   _fwd.set(Math.sin(s.heading), 0, Math.cos(s.heading));
@@ -495,7 +496,7 @@ function updateCar(dt) {
     if (dx * dx + dz * dz < 1.8 && Math.abs(s.pos.y - CITY_Y) < 2) {
       if (kmhNow > 5) {
         s.vel.multiplyScalar(0.05);
-        wantedLevel = Math.min(5, wantedLevel + 2);
+        wantedLevel = Math.min(10, wantedLevel + 2);
         if (typeof toast === 'function') toast('Hit a pedestrian! Wanted level: ' + wantedLevel);
         s.pos.set(-150, CITY_Y, 3);
         s.vel.set(0, 0, 0);
@@ -593,7 +594,7 @@ function checkSpeedGuidance() {
   if (kmh > 55 && Math.random() < 0.01) showGuidance('Slow down! Speed limit is 50 km/h', 2500);
   if (kmh > 65) {
     if (Math.random() < 0.003) {
-      wantedLevel = Math.min(5, wantedLevel + 1);
+      wantedLevel = Math.min(10, wantedLevel + 1);
       if (typeof toast === 'function') toast('Speeding! Wanted level: ' + wantedLevel);
     }
   }
@@ -607,7 +608,7 @@ function checkSpeedGuidance() {
     redLightViolationTimer += 1 / 60;
     if (redLightViolationTimer > 1.5) {
       redLightViolationTimer = 0;
-      wantedLevel = Math.min(5, wantedLevel + 1);
+      wantedLevel = Math.min(10, wantedLevel + 1);
       if (typeof toast === 'function') toast('Ran a red light! Wanted level: ' + wantedLevel);
     }
   } else {
@@ -620,6 +621,14 @@ function checkSpeedGuidance() {
       wantedLevel = Math.max(0, wantedLevel - 1);
       if (typeof toast === 'function') toast('Wanted level: ' + wantedLevel);
     }
+  }
+  if (wantedLevel >= 6 && Math.random() < 0.004 && roadblocks.length < 4) {
+    spawnRoadblock();
+    if (typeof toast === 'function') toast('Roadblock ahead!');
+  }
+  if (wantedLevel >= 9 && Math.random() < 0.003 && spikeStrips.length < 3) {
+    spawnSpikeStrip();
+    if (typeof toast === 'function') toast('Spike strip deployed!');
   }
 }
 
@@ -715,11 +724,18 @@ function drawMinimap() {
   for (const c of aiCars) {
     mmCtx.fillRect(S / 2 + c.group.position.x * sc - 1.5, S / 2 - c.group.position.z * sc - 1.5, 3, 3);
   }
-  if (wantedLevel >= 2) {
+  if (wantedLevel >= 1) {
     mmCtx.fillStyle = '#ff3333';
     for (const c of copCars) {
       if (!c.active) continue;
       mmCtx.fillRect(S / 2 + c.group.position.x * sc - 2, S / 2 - c.group.position.z * sc - 2, 4, 4);
+    }
+  }
+  if (wantedLevel >= 4) {
+    mmCtx.fillStyle = '#ff66ff';
+    for (const h of helicopters) {
+      if (!h.active) continue;
+      mmCtx.fillRect(S / 2 + h.pos.x * sc - 2.5, S / 2 - h.pos.z * sc - 2.5, 5, 5);
     }
   }
   const heading = carState.heading;
@@ -755,7 +771,7 @@ addEventListener('keydown', (e) => {
   if (!e.repeat) pressed.add(e.code);
   keys[e.code] = true;
   if (mode === 'menu') return;
-  if (['Space','KeyW','KeyA','KeyS','KeyD','KeyE','KeyQ','KeyR','KeyF','KeyH','KeyC','KeyB','KeyM'].includes(e.code)) e.preventDefault();
+  if (['Space','KeyW','KeyA','KeyS','KeyD','KeyE','KeyQ','KeyR','KeyF','KeyH','KeyC','KeyB','KeyM','KeyP'].includes(e.code)) e.preventDefault();
   if (e.code === 'Escape') { togglePause(); return; }
   if (paused) return;
   initAudio();
@@ -779,6 +795,10 @@ addEventListener('keydown', (e) => {
       flyCam.yaw = e2.y; flyCam.pitch = e2.x;
       mode = 'build';
     } else if (mode === 'build') { mode = 'drive'; }
+  }
+  if (e.code === 'KeyP') {
+    if (mode === 'drive') enterPlane();
+    else if (mode === 'fly') exitPlane();
   }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -839,8 +859,9 @@ function tick(now) {
     if (typeof keyboardToInput === 'function') keyboardToInput(keys);
 
   if (mode !== 'menu' && !paused) {
-    if (mode === 'drive' || mode === 'exiting') {
-      updateCar(dt);
+    if (mode === 'drive' || mode === 'exiting' || mode === 'fly') {
+      if (mode === 'fly') updatePlane(dt);
+      else updateCar(dt);
       updateChaseCamera(dt);
     } else if (mode === 'build') {
       updateFlyCamera(dt);
@@ -857,6 +878,10 @@ function tick(now) {
     updateAudio(dt);
     updateDayNight(dt);
     updateCops(dt);
+    updateBullets(dt);
+    updateRoadblocks(dt);
+    updateSpikeStrips(dt);
+    updateHelicopters(dt);
     updateGuidance(dt);
     updateTrafficLightHud();
     checkSpeedGuidance();
@@ -866,14 +891,53 @@ function tick(now) {
     }
     skyGroup.position.copy(camera.position);
 
-    if (mode === 'drive') updateDashboard();
+    if (mode === 'drive' || mode === 'fly') updateDashboard();
+
+    const healthFill = $('healthFill');
+    const healthLabel = $('healthLabel');
+    if (healthFill) {
+      healthFill.style.width = (playerHealth / playerMaxHealth * 100) + '%';
+      healthFill.style.background = playerHealth > 60 ? '#4caf50' : playerHealth > 30 ? '#ffa726' : '#ef5350';
+    }
+    if (healthLabel) healthLabel.textContent = Math.round(playerHealth) + ' HP';
+    const altEl = $('altitudeVal');
+    if (altEl) {
+      if (inPlane && planeState) {
+        altEl.textContent = Math.round(planeState.altitude) + 'm';
+        altEl.parentElement.style.display = '';
+      } else {
+        altEl.parentElement.style.display = 'none';
+      }
+    }
+    const dmgFlash = $('damageFlash');
+    if (dmgFlash) {
+      if (damageFlashTimer > 0) {
+        damageFlashTimer -= dt;
+        dmgFlash.style.opacity = String(Math.max(0, damageFlashTimer / 0.35 * 0.5));
+      } else {
+        dmgFlash.style.opacity = '0';
+      }
+    }
+    const busted = $('bustedScreen');
+    if (busted) {
+      if (bustedTimer > 0) {
+        bustedTimer -= dt;
+        busted.style.display = 'flex';
+        if (bustedTimer <= 0) {
+          busted.style.display = 'none';
+          respawnPlayer();
+        }
+      } else {
+        busted.style.display = 'none';
+      }
+    }
 
     const p = playerPos();
     $('hudBiome').textContent = biomeName(p.x, p.z, p.y);
     $('hudZone').textContent = 'City Center';
 
     if (wantedLevel > 0) {
-      const stars = '★'.repeat(wantedLevel) + '☆'.repeat(5 - wantedLevel);
+      const stars = '★'.repeat(wantedLevel) + '☆'.repeat(Math.max(0, 10 - wantedLevel));
       $('hudZone').textContent = 'WANTED ' + stars;
       $('hudZone').style.color = '#ff4444';
     } else {
