@@ -25,7 +25,7 @@ function standard(hex, rough, metal, opts) {
     { color: srgb(hex), roughness: rough, metalness: metal }, opts || {}));
 }
 
-scene.fog = new THREE.Fog(new THREE.Color(0x9db8cc), 90, 700);
+scene.fog = new THREE.Fog(new THREE.Color(0x9db8cc), 120, 1200);
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.6);
 sun.color = srgb(0xfff0d8);
@@ -33,7 +33,7 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left = -95; sun.shadow.camera.right = 95;
 sun.shadow.camera.top = 95; sun.shadow.camera.bottom = -95;
-sun.shadow.camera.near = 10; sun.shadow.camera.far = 450;
+  sun.shadow.camera.near = 10; sun.shadow.camera.far = 1200;
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 scene.add(sun.target);
@@ -44,7 +44,7 @@ const ambient = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambient);
 
 // ---------- World constants ----------
-const MAP = 900, WATER_Y = 0.4, CITY_Y = 2, CITY_EDGE = 186, BLOCK = 2;
+const MAP = 3000, WATER_Y = 0.4, CITY_Y = 2, CITY_EDGE = 186, BLOCK = 2;
 const ROADS = [-180, -120, -60, 0, 60, 120, 180];
 const BLOCK_CENTERS = [-150, -90, -30, 30, 90, 150];
 
@@ -107,7 +107,7 @@ function surfaceGroundY(x, z) {
   return terrainHeight(x, z);
 }
 
-const terrainGeo = new THREE.PlaneGeometry(MAP, MAP, 200, 200);
+const terrainGeo = new THREE.PlaneGeometry(MAP, MAP, 300, 300);
 terrainGeo.rotateX(-Math.PI / 2);
 {
   const pos = terrainGeo.attributes.position;
@@ -626,7 +626,7 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
 // ---------- Countryside vegetation ----------
 {
   let placed = 0, tries = 0;
-  while (placed < 300 && tries < 3000) {
+  while (placed < 1000 && tries < 8000) {
     tries++;
     const x = (Math.random() - 0.5) * (MAP - 80);
     const z = (Math.random() - 0.5) * (MAP - 80);
@@ -641,7 +641,7 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
 }
 {
   let placed = 0;
-  while (placed < 80) {
+  while (placed < 250) {
     const x = (Math.random() - 0.5) * (MAP - 100);
     const z = (Math.random() - 0.5) * (MAP - 100);
     if (cityMask(x, z) > 0.02) continue;
@@ -653,7 +653,7 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
 }
 {
   const gGeo = new THREE.ConeGeometry(0.06, 0.35, 4);
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 1000; i++) {
     const x = (Math.random() - 0.5) * (MAP - 100);
     const z = (Math.random() - 0.5) * (MAP - 100);
     if (cityMask(x, z) > 0.02) continue;

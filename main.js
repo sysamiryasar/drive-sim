@@ -680,8 +680,8 @@ function updateDayNight(dt) {
   aurora.rotation.y = dayT * Math.PI * 2;
 
   scene.fog.color.copy(_bot).convertSRGBToLinear();
-  scene.fog.far = 700 - skyGray * 320;
-  scene.fog.near = 90 - skyGray * 40;
+  scene.fog.far = 1200 - skyGray * 500;
+  scene.fog.near = 120 - skyGray * 50;
 
   starMat.opacity = nightF * (1 - skyGray);
   moonMat.opacity = nightF * (1 - skyGray * 0.7);

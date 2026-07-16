@@ -1003,7 +1003,7 @@ function enterPlane() {
   };
   mode = 'fly';
   camStyle = 'chase';
-  if (typeof toast === 'function') toast('Plane! W/S throttle, A/D pitch, Q/E roll');
+  if (typeof toast === 'function') toast('Plane! W/S throttle, A/D steer, Q/E pitch');
 }
 
 function exitPlane() {
@@ -1020,33 +1020,39 @@ function updatePlane(dt) {
   if (!planeState) return;
   const ps = planeState;
   ps.throttle = Math.max(0, Math.min(1, ps.throttle + input.moveZ * dt * 0.6));
-  const thrust = ps.throttle * 40;
-  const drag = 0.018 * ps.speed * ps.speed;
+  const thrust = ps.throttle * 45;
+  const drag = 0.015 * ps.speed * ps.speed;
   ps.speed += (thrust - drag) * dt;
   ps.speed = Math.max(0, ps.speed);
-  const lift = ps.speed > 12 ? (ps.speed - 12) * 0.4 : 0;
-  const gravity = 8.5;
+  const lift = ps.speed > 10 ? (ps.speed - 10) * 0.5 : 0;
+  const gravity = 8.0;
   if (ps.onGround) {
     ps.altitude = Math.max(0, ps.altitude);
-    ps.roll *= 0.92;
-    ps.pitch *= 0.92;
-    if (ps.speed > 30 && lift > gravity * 1.1) {
+    ps.roll *= 0.9;
+    ps.pitch *= 0.9;
+    if (ps.speed > 25 && lift > gravity * 1.05) {
       ps.onGround = false;
       if (typeof toast === 'function') toast('Takeoff!');
     }
   } else {
-    ps.pitch += input.moveX * 2.0 * dt;
-    ps.pitch = Math.max(-0.7, Math.min(0.7, ps.pitch));
-    ps.roll += (keys['KeyQ'] ? 1 : keys['KeyE'] ? -1 : 0) * 2.8 * dt;
-    ps.roll = Math.max(-1.1, Math.min(1.1, ps.roll));
+    // A/D = yaw (steer left/right)
+    ps.heading += input.moveX * 1.8 * dt * Math.max(0.5, ps.speed / 20);
+    // Q/E = pitch (nose up/down)
+    const pitchInput = keys['KeyQ'] ? 1 : keys['KeyE'] ? -1 : 0;
+    ps.pitch += pitchInput * 2.5 * dt;
+    ps.pitch += -ps.pitch * 1.5 * dt;
+    ps.pitch = Math.max(-0.8, Math.min(0.8, ps.pitch));
+    // Auto-bank: roll follows yaw input
+    const targetRoll = -input.moveX * 0.8 * Math.min(1, ps.speed / 20);
+    ps.roll += (targetRoll - ps.roll) * Math.min(1, dt * 5);
+    ps.roll = Math.max(-1.2, Math.min(1.2, ps.roll));
     ps.altitude += (lift - gravity) * dt;
-    ps.altitude += -ps.pitch * ps.speed * 0.15 * dt;
-    ps.heading += ps.roll * 0.03 * dt * Math.max(1, ps.speed / 25);
+    ps.altitude += ps.pitch * ps.speed * 0.12 * dt;
     if (ps.altitude <= 0) {
       ps.altitude = 0;
       ps.onGround = true;
-      if (ps.speed > 35 || Math.abs(ps.roll) > 0.4) {
-        damagePlayer(35, 'Crash landing');
+      if (ps.speed > 30 || Math.abs(ps.roll) > 0.5) {
+        damagePlayer(30, 'Crash landing');
         ps.speed *= 0.3;
         ps.roll = 0;
         ps.pitch = 0;
@@ -1060,7 +1066,7 @@ function updatePlane(dt) {
   ps.pos.x = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, ps.pos.x));
   ps.pos.z = Math.max(-MAP / 2 + 15, Math.min(MAP / 2 - 15, ps.pos.z));
   plane.position.copy(ps.pos);
-  plane.rotation.set(ps.pitch * 0.5, ps.heading, -ps.roll * 0.3);
+  plane.rotation.set(ps.pitch * 0.6, ps.heading, ps.roll * 0.5);
   if (plane.userData.prop) plane.userData.prop.rotation.z += ps.throttle * 45 * dt;
   carState.pos.copy(ps.pos);
   carState.heading = ps.heading;
