@@ -1,127 +1,100 @@
-# Realm Craft
+# Realm Drive
 
-> **Build Anything. Drive Everything. Fight Anywhere. Create Forever.**
+> Open-world browser driving: drift, jump, race, deliver, escape the cops — and build a garage.
 
-A next-generation sandbox platform combining open-world driving, creative building,
-combat, survival, RPG progression, and user-generated experiences.
+A Three.js driving sandbox with real 3D models, arcade stunt scoring, races, delivery
+jobs, collectibles, 43 achievements, daily challenges and a persistent garage that
+gives players a reason to come back every day.
+
+## Play Online
+
+Play the latest build in your browser: **https://samir2006.github.io/realm-craft/**
+
+## Run Locally
+
+```bash
+npx serve .
+```
+
+Then open the printed URL. Serve the repo root (not `prototype/`) so the game can reach `models/`.
+
+## What's in the game
+
+### Garage & progression
+- **15 vehicles** built from real 3D models — hatchback and sedan to start, then taxi, delivery van,
+  SUV, pickup, Street Sport, motorcycle, ambulance, luxury SUV, police Interceptor, fire truck,
+  Rally Racer, Hyper Concept, and the photoreal **Italia 458** supercar. Each unlocks at a player
+  level and is bought with cash; many have perks (more delivery pay, drift bonus, bigger nitro tank, siren…).
+- **Paint shop** — 11 paints (recolors the real model textures live in the 3D showroom).
+- **Cash + XP + levels**, a live 3D car preview on the home screen, and a session recap when you return.
+- **Saves automatically** in the browser (`localStorage`).
+
+### Reasons to come back
+- **Daily challenges** — three new goals every day (scaled to your level) plus a sweep bonus.
+- **Login streak** — rewards grow each consecutive day ($250 → $2,000 on day 7).
+- **43 achievements** with progress bars and cash rewards.
+- **Records** — race medals and best times, speed-trap bests, stars found, stunt jumps cleared, career stats.
+
+### Arcade scoring
+Chain tricks within 4 seconds to grow a **combo multiplier (up to x15)**, then bank it for cash and XP.
+Crashing, getting busted or hitting a pedestrian loses the combo.
+- **Drifts** (handbrake slides), **near misses** past traffic and cops, **big air**, **smashing props**,
+  and **speed traps**.
+- **Nitro** (Shift) refills over time and with every trick.
+
+### Things to do
+- **3 races** with countdowns, checkpoint gates and bronze/silver/gold times: Downtown Dash,
+  Ring Road Sprint, Countryside Rally.
+- **Delivery jobs** — pick up at a 📦 depot, beat the clock, chain deliveries for a growing streak multiplier.
+- **11 stunt ramps**, including a **Stunt Park** with a MEGA RAMP south-west of the city.
+- **40 hidden stars** — street level, mid-air above ramps, out in the countryside and at the map's edges.
+- **Cash bags**, **3 speed traps**, smashable cones/crates/hydrants/bins.
+- **Police** — escape a chase to earn a payout scaled to your wanted level; helicopters, roadblocks and
+  spike strips at high wanted levels.
+- Still here: flyable plane (P), build mode (B), dynamic weather and day/night.
+
+### Controls
+
+**Keyboard**
+
+| Key | Action |
+|---|---|
+| `W` `S` / arrows | Accelerate / brake & reverse |
+| `A` `D` / arrows | Steer |
+| `Space` | Handbrake (drift) |
+| `Shift` | Nitro |
+| `H` | Horn (siren on emergency vehicles) |
+| `C` | Chase / roof / top camera |
+| `F` | Headlights |
+| `R` | Reset car (also abandons a race or delivery) |
+| `P` | Plane |
+| `B` | Build mode |
+| `M` | Sound on/off |
+| `Esc` | Pause → resume or go to the garage |
+
+**Gamepad:** left stick steer · RT accelerate · LT brake/reverse · LB handbrake · RB nitro ·
+A horn · B camera · X reset · Y fullscreen · Start pause.
+
+**Touch:** left joystick to drive, plus on-screen handbrake, N₂O, horn, camera, reset, pause and fullscreen buttons.
 
 ## Project Structure
 
 | Path | What it is |
 |---|---|
-| [docs/VISION.md](docs/VISION.md) | The full design vision — the north star |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Phased development plan + tech stack recommendation |
-| [prototype/](prototype/index.html) | Playable browser prototype (world.js / entities.js / input.js / main.js) |
+| `index.html` | Page, HUD and home-screen markup and styles |
+| `world.js` | Renderer, terrain, city, ramps, sky, ground queries |
+| `entities.js` | 3D model loading, vehicle roster, paint jobs, traffic, pedestrians, police, plane |
+| `progress.js` | Save data, cash/XP/levels, achievements, daily challenges, login streak |
+| `activities.js` | Combo scoring, props, stars, cash bags, speed traps, races, deliveries, escapes |
+| `garage.js` | Home screen: garage, paint shop, daily, achievements, records |
+| `input.js` | Keyboard, gamepad and touch input |
+| `main.js` | Game loop, car physics, cameras, HUD, audio |
+| `models/` | GLB models — see [models/CREDITS.md](models/CREDITS.md) |
+| `prototype/` | Mirror of the game files |
+| [docs/VISION.md](docs/VISION.md), [docs/ROADMAP.md](docs/ROADMAP.md) | Long-term design vision and plan |
 
-## Prototype 0.5 — "Realism"
+## Credits
 
-Three explorable dimensions, one seamless game — now with **8 vehicles**, **dynamic weather effects**, and **enhanced realism**.
-
-### Vehicles (8 types)
-
-| Vehicle | Accel | Top Speed | Grip | Handling |
-|---|---|---|---|---|
-| Sports | 19 | 50 km/h | 9 | Nimble, low center |
-| Muscle | 23 | 44 km/h | 6.5 | Fast launch, heavy drift |
-| Off-Roader | 14 | 38 km/h | 10 | All-terrain, high clearance |
-| Truck | 11 | 34 km/h | 7.5 | Heavy, stable hauling |
-| SUV | 16 | 42 km/h | 8.5 | Balanced, family-friendly |
-| Van | 13 | 36 km/h | 8 | Cargo hauling, wide turns |
-| Motorcycle | 22 | 58 km/h | 7 | Fastest, lightweight |
-| Police | 20 | 48 km/h | 9.5 | Pursuit-optimized, lights |
-
-### World Features
-
-- **Surface** — procedural city (36 blocks of window-lit skyscrapers, roads, lamps, parks, AI traffic, pedestrians) surrounded by countryside shaped by a **125-biome classification system**: temperature x moisture x elevation recolor the terrain and pick the vegetation (conifers, broadleaf, palms, cacti).
-- **Underworld** — drive through the purple portal east of the city into a lava cavern: glowing pools (they melt you), crystals, stone pillars, ember fog.
-- **Sky Realm** — the cyan portal west of the city teleports you onto a chain of floating islands. They descend in steps — jump the gaps at speed.
-- **Dynamic Weather** — automatic, biome-biased: snow accumulates on terrain during snowfall, rain creates puddles in the city. Weather affects grip, sky color, fog, and visibility.
-- **Snow Accumulation** — snow piling builds up on terrain over time, creating visible white layers that melt when weather clears.
-- **Rain Puddles** — puddles form on city surfaces during rain, with realistic water reflection materials.
-- **Aurora Borealis** — northern lights shimmer in the night sky during clear weather, with procedural wave animations.
-- **Atmospheric Haze** — sky shader includes atmospheric scattering and haze for more realistic horizons.
-
-### Enhanced Audio
-
-- **Engine Sound** — two-oscillator synthesis modulated by speed/gear (sawtooth + triangle)
-- **Wind** — procedural wind noise during rain/snow weather
-- **Footsteps** — footstep sounds while walking/running on foot
-- **Collision Sounds** — impact noise on building/tree collisions
-- **Gun Sounds** — noise burst with lowpass filter
-- **Mute Toggle** — press `M` to mute all sounds
-
-### Terrain Enhancements
-
-- **Rocks** — scattered dodecahedron rocks in the countryside (80+)
-- **Grass Tufts** — hundreds of procedural grass blades in moist biomes that sway in the wind
-- **Enhanced Vertex Colors** — mud transitions, cliff faces, deeper vegetation coloring
-- **Higher Resolution Terrain** — 200x200 mesh grid for smoother landscape
-
-### AI Improvements
-
-- **22 AI Traffic Cars** (up from 18) with turn signal indicators at intersections
-- **35 Pedestrians** (up from 28) with varied skin tones, clothing, and leg animation
-- **Smarter Battle Royale Bots** — individual accuracy/aggression stats, distance-based behavior (charge vs. strafe), better target selection, faster retargeting
-
-### Build Mode (7 materials)
-
-Wood, Stone, Brick, Glass, Gold, **Metal**, **Marble** — snap-to-grid placement with raycaster surface detection.
-
-### Controls
-
-**Keyboard + Mouse:**
-
-| Key | Action |
-|---|---|
-| `W A S D` | Drive / run / fly |
-| `Space` | Handbrake (car) / jump (foot) / up (build) |
-| `Shift` | Sprint (foot) / down (build) |
-| `F` | Get out of / into the car |
-| `C` | Chase / cockpit camera |
-| `B` | Build mode (LMB place, RMB break, 1-7 material) |
-| `G` | Start / quit battle royale |
-| `M` | Engine sound on/off |
-| `R` | Reset car |
-
-**Gamepad / Controller:**
-
-| Input | Action |
-|---|---|
-| Left stick | Move / steer |
-| Right stick | Look / aim |
-| A / Cross | Jump |
-| B / Circle | Enter / exit car |
-| X / Square | Build mode |
-| Y / Triangle | Battle royale |
-| LB | Sprint |
-| RB | Camera toggle |
-| LT | Handbrake |
-| RT | Fire (battle royale) |
-| Select | Reset car |
-| Start | Fullscreen |
-
-**Touch (mobile / tablet):**
-
-| Control | Action |
-|---|---|
-| Left joystick | Move / steer |
-| Right area drag | Look / aim |
-| On-screen buttons | All actions (jump, brake, sprint, fire, enter/exit, build, fight, camera, reset, fullscreen) |
-
-## Play Online
-
-Play the latest build directly in your browser at:
-**https://samir2006.github.io/realm-craft/**
-
-## Run Locally
-
-```
-npx serve prototype
-```
-
-Or open `prototype/index.html` in a browser (needs internet once for the Three.js CDN).
-
-## Status
-
-**Phase 0 — Foundation.** See the [roadmap](docs/ROADMAP.md). The prototype proves the
-core loops; AAA visuals come from the engine build (recommendation: Unreal Engine 5).
+Vehicles, props and pedestrians: [Kenney](https://kenney.nl) Car Kit and Blocky Characters (CC0).
+Italia 458: "Ferrari 458 Italia" by vicent091036, as bundled with the three.js car example.
+Details in [models/CREDITS.md](models/CREDITS.md).

@@ -623,7 +623,114 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
   buildingAABBs.push({ minX: gx - 8, maxX: gx + 8, minZ: gz - 7.3, maxZ: gz - 6.7, topY: CITY_Y + 6.3 });
 }
 
+// ---------- Stunt ramps ----------
+// Wedges that rise from the low end (local -z) to a lip at the high end (+z).
+// A car with heading === rotY drives up them; launch speed comes from updateCar.
+const ramps = [];
+const STUNT_PARK = { x: -285, z: -318 };
+const rampTopTex = canvasTexture(128, 256, (g, w, h) => {
+  g.fillStyle = '#26282c'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#f2c14e';
+  for (let y = -64; y < h; y += 64) {
+    g.beginPath(); g.moveTo(16, y + 52); g.lineTo(64, y + 12); g.lineTo(112, y + 52);
+    g.lineTo(112, y + 72); g.lineTo(64, y + 32); g.lineTo(16, y + 72); g.closePath(); g.fill();
+  }
+  g.fillStyle = '#e8e6e0'; g.fillRect(0, 0, 8, h); g.fillRect(w - 8, 0, 8, h);
+});
+const rampSideMat = lambert(0x5d636b);
+function addRamp(name, x, z, rotY, len, wid, hgt) {
+  const w = wid / 2, z0 = -len / 2, z1 = len / 2;
+  const A = [-w, 0, z0], B = [w, 0, z0], C = [w, hgt, z1], D = [-w, hgt, z1], A1 = [-w, 0, z1], B1 = [w, 0, z1];
+  const tris = [A, C, B, A, D, C, A1, B1, C, A1, C, D, B, C, B1, A, A1, D];
+  const pos = [], uv = [];
+  const rep = Math.max(1, Math.round(len / 4));
+  const uvOf = (p) => [(p[0] + w) / wid, (p[2] - z0) / len * rep];
+  tris.forEach(p => { pos.push(p[0], p[1], p[2]); uv.push(...uvOf(p)); });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.addGroup(0, 6, 0); geo.addGroup(6, 12, 1);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, [new THREE.MeshLambertMaterial({ map: rampTopTex }), rampSideMat]);
+  const city = inCity(x, z);
+  let base = CITY_Y + 0.02;
+  if (!city) {
+    base = -Infinity;
+    for (const [a, b] of [[-w, z0], [w, z0], [-w, z1], [w, z1], [0, 0]]) {
+      const wx = x + a * Math.cos(rotY) + b * Math.sin(rotY), wz = z - a * Math.sin(rotY) + b * Math.cos(rotY);
+      base = Math.max(base, terrainHeight(wx, wz));
+    }
+  }
+  mesh.position.set(x, base, z);
+  mesh.rotation.y = rotY;
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  scene.add(mesh);
+  const grad = hgt / len;
+  const r = {
+    id: ramps.length, name, x, z, rotY, len, wid, hgt, base, mesh,
+    cos: Math.cos(rotY), sin: Math.sin(rotY),
+    normal: new THREE.Vector3(-Math.sin(rotY) * grad, 1, -Math.cos(rotY) * grad).normalize(),
+  };
+  r.lipX = x + r.sin * z1; r.lipZ = z + r.cos * z1;
+  ramps.push(r);
+  if (!city) {
+    // support pillars so countryside ramps don't float over dips
+    const legGeo = new THREE.BoxGeometry(0.4, 1, 0.4);
+    for (const a of [-w + 0.3, w - 0.3]) {
+      const wx = x + a * r.cos + (z1 - 0.3) * r.sin, wz = z - a * r.sin + (z1 - 0.3) * r.cos;
+      const gy = terrainHeight(wx, wz), top = base + hgt;
+      const leg = new THREE.Mesh(legGeo, rampSideMat);
+      leg.scale.y = Math.max(0.1, top - gy);
+      leg.position.set(wx, gy + leg.scale.y / 2, wz);
+      scene.add(leg);
+    }
+  }
+  return r;
+}
+// Local coordinates on the ramp: lx across, lz along (low end -len/2, lip +len/2)
+function rampLocal(r, x, z) {
+  const dx = x - r.x, dz = z - r.z;
+  return { lx: dx * r.cos - dz * r.sin, lz: dx * r.sin + dz * r.cos };
+}
+function rampTopAt(r, x, z) {
+  const l = rampLocal(r, x, z);
+  if (Math.abs(l.lx) > r.wid / 2 || Math.abs(l.lz) > r.len / 2) return null;
+  return r.base + r.hgt * (l.lz + r.len / 2) / r.len;
+}
+{
+  // City kickers sit on the road centre line, between the traffic lanes
+  addRamp('Main St Kicker', 30, 0, Math.PI / 2, 9, 3.4, 1.8);
+  addRamp('Westside Hop', -90, 60, -Math.PI / 2, 9, 3.4, 1.8);
+  addRamp('North Ave Launch', 0, 90, 0, 9, 3.4, 1.8);
+  addRamp('Tower Skip', 120, -30, Math.PI, 9, 3.4, 1.8);
+  addRamp('Harbor Flyer', -30, -120, Math.PI / 2, 9, 3.4, 1.8);
+  addRamp('Ring Road East', 180, 90, 0, 10, 3.4, 2.2);
+  addRamp('Ring Road West', -180, -90, Math.PI, 10, 3.4, 2.2);
+  addRamp('Southside Soar', 90, 180, -Math.PI / 2, 10, 3.4, 2.2);
+  // Stunt Park, out in the south-west countryside
+  addRamp('MEGA RAMP', STUNT_PARK.x - 10, STUNT_PARK.z, Math.PI / 2, 26, 8, 9);
+  addRamp('Park Kicker North', STUNT_PARK.x - 5, STUNT_PARK.z + 24, 0, 11, 5, 2.8);
+  addRamp('Park Kicker South', STUNT_PARK.x + 5, STUNT_PARK.z - 24, Math.PI, 11, 5, 2.8);
+  const signTex = canvasTexture(256, 64, (g, w, h) => {
+    g.fillStyle = '#16181d'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#f2c14e'; g.font = 'bold 40px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('STUNT PARK', w / 2, h / 2 + 2);
+  });
+  const sx = STUNT_PARK.x - 34, sz = STUNT_PARK.z;
+  const sy = terrainHeight(sx, sz);
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(16, 4), new THREE.MeshLambertMaterial({ map: signTex, side: THREE.DoubleSide }));
+  board.position.set(sx, sy + 7, sz);
+  board.rotation.y = Math.PI / 2;
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.4, 7, 0.4), lambert(0x24262a));
+  post.position.set(sx, sy + 3.5, sz);
+  scene.add(board, post);
+}
+
 // ---------- Countryside vegetation ----------
+function nearRamp(x, z, pad) {
+  for (const r of ramps) if (Math.hypot(x - r.x, z - r.z) < r.len / 2 + pad) return true;
+  return false;
+}
 {
   let placed = 0, tries = 0;
   while (placed < 1000 && tries < 8000) {
@@ -631,6 +738,7 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
     const x = (Math.random() - 0.5) * (MAP - 80);
     const z = (Math.random() - 0.5) * (MAP - 80);
     if (cityMask(x, z) > 0.02) continue;
+    if (nearRamp(x, z, 40)) continue;
     const h = terrainHeight(x, z);
     if (h < WATER_Y + 1.2 || h > 9.5) continue;
     const m = moistAt(x, z);
@@ -644,7 +752,7 @@ const GARAGE = { x: -161.5, z: -18.5, hw: 8, hd: 7 };
   while (placed < 250) {
     const x = (Math.random() - 0.5) * (MAP - 100);
     const z = (Math.random() - 0.5) * (MAP - 100);
-    if (cityMask(x, z) > 0.02) continue;
+    if (cityMask(x, z) > 0.02 || nearRamp(x, z, 40)) continue;
     const h = terrainHeight(x, z);
     if (h < WATER_Y + 1.5 || h > 10) continue;
     addRock(x, h, z, 0.4 + Math.random() * 1.2);
@@ -740,6 +848,7 @@ const auroraMat = new THREE.ShaderMaterial({
 const aurora = new THREE.Mesh(new THREE.PlaneGeometry(600, 80, 32, 8), auroraMat);
 aurora.position.set(0, 180, -300); aurora.rotation.x = -0.3; aurora.renderOrder = -1;
 skyGroup.add(aurora);
+scene.add(skyGroup);
 
 const cloudMat = lambert(0xffffff, { transparent: true, opacity: 0.92 });
 const clouds = [];
@@ -764,6 +873,10 @@ const clouds = [];
 // ---------- Ground query ----------
 function groundAt(x, z, y) {
   let g = surfaceGroundY(x, z);
+  for (const r of ramps) {
+    const t = rampTopAt(r, x, z);
+    if (t !== null && y >= t - 0.9 && t > g) g = t;
+  }
   for (const b of buildingAABBs) {
     if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && y >= b.topY - 0.7 && b.topY > g) g = b.topY;
   }
@@ -778,23 +891,39 @@ function groundAt(x, z, y) {
   }
   return g;
 }
+function rampUnder(x, z, y) {
+  for (const r of ramps) {
+    const t = rampTopAt(r, x, z);
+    if (t !== null && Math.abs(y - t) < 0.35) return r;
+  }
+  return null;
+}
 function groundNormalAt(x, z, y) {
+  const r = rampUnder(x, z, y);
+  if (r) return r.normal;
   if (inCity(x, z) || groundAt(x, z, y) !== surfaceGroundY(x, z)) return new THREE.Vector3(0, 1, 0);
   return terrainNormal(x, z);
 }
 
 // ---------- Environment reflections ----------
+// A small canvas-painted sky/ground cube map. PMREM render targets came out black
+// on some GPUs/software renderers, which turned every PBR material (cars!) black.
 {
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envScene = new THREE.Scene();
-  const envSky = new THREE.Mesh(new THREE.SphereGeometry(50, 16, 10), new THREE.ShaderMaterial({
-    uniforms: { uTop: { value: new THREE.Color(0x2e74c4) }, uBottom: { value: new THREE.Color(0xcfe3f2) } },
-    vertexShader: skyMat.vertexShader,
-    fragmentShader: `varying vec3 vPos; uniform vec3 uTop; uniform vec3 uBottom;
-      void main() { gl_FragColor = vec4(mix(uBottom, uTop, pow(clamp(normalize(vPos).y, 0.0, 1.0), 0.55)), 1.0); }`,
-    side: THREE.BackSide,
-  }));
-  envScene.add(envSky);
-  scene.environment = pmrem.fromScene(envScene, 0.05).texture;
-  pmrem.dispose();
+  const S = 64;
+  const paint = (stops) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, S);
+    stops.forEach(([o, col]) => gr.addColorStop(o, col));
+    g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    return c;
+  };
+  const side = paint([[0, '#3f7fd0'], [0.42, '#a9c9e8'], [0.5, '#e3edf5'], [0.56, '#7d8378'], [1, '#3b3f3a']]);
+  const up = paint([[0, '#3f7fd0'], [1, '#3f7fd0']]);
+  const down = paint([[0, '#3b3f3a'], [1, '#3b3f3a']]);
+  const env = new THREE.CubeTexture([side, side, up, down, side, side]);
+  env.encoding = THREE.sRGBEncoding;
+  env.needsUpdate = true;
+  scene.environment = env;
 }
