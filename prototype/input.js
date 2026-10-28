@@ -7,6 +7,7 @@
 const input = {
   moveX: 0, moveZ: 0,       // -1..1 analog stick / WASD
   brake: false,              // Space / L-trigger / brake button
+  nitro: false,              // Shift / R-trigger / nitro button
   sprint: false,             // Shift / L-bumper / sprint button
   lookDX: 0, lookDY: 0,     // per-frame look delta (mouse / right stick / touch)
   fire: false,               // LMB / R-trigger
@@ -156,6 +157,7 @@ function onBtnStart(e) {
     if (el.dataset.hold === 'true') {
       heldButtons.add(action);
       if (action === 'brake') input.brake = true;
+      if (action === 'nitro') input.nitro = true;
     } else {
       queueEdge(action);
     }
@@ -171,6 +173,7 @@ function onBtnEnd(e) {
     if (info.el.dataset.hold === 'true') {
       heldButtons.delete(info.action);
       if (info.action === 'brake') input.brake = false;
+      if (info.action === 'nitro') input.nitro = false;
     }
     delete activeTouches[t.identifier];
   }
@@ -185,11 +188,11 @@ const GP_MAP = {
   0: 'horn',        // A / Cross
   1: 'camera',      // B / Circle
   2: 'reset',       // X / Square
-  4: 'brake',       // LB
-  5: 'fullscreen',  // RB
+  3: 'fullscreen',  // Y / Triangle
   8: 'reset',       // Select/Back
-  9: 'fullscreen',  // Start
+  9: 'pause',       // Start
 };
+const gpState = { moveX: 0, moveZ: 0, brake: false, nitro: false, active: false };
 
 function pollGamepad() {
   const gps = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -197,21 +200,23 @@ function pollGamepad() {
   for (const g of gps) {
     if (g && g.connected) { gp = g; gamepadIndex = g.index; break; }
   }
-  if (!gp) { gamepadIndex = null; return; }
+  if (!gp) { gamepadIndex = null; gpState.active = false; return; }
+  gpState.active = true;
 
-  // sticks
+  // sticks + triggers (RT accelerates, LT reverses like most racing games)
   const lx = Math.abs(gp.axes[0]) > GP_DEADZONE ? gp.axes[0] : 0;
   const ly = Math.abs(gp.axes[1]) > GP_DEADZONE ? gp.axes[1] : 0;
-  input.moveX = -lx;  // left positive
-  input.moveZ = -ly;  // up positive
+  const rt = gp.buttons[7] ? gp.buttons[7].value : 0, lt = gp.buttons[6] ? gp.buttons[6].value : 0;
+  gpState.moveX = -lx;  // left positive
+  gpState.moveZ = Math.abs(rt - lt) > 0.05 ? rt - lt : -ly;  // up positive
 
   const rx = Math.abs(gp.axes[2]) > GP_DEADZONE ? gp.axes[2] : 0;
   const ry = Math.abs(gp.axes[3]) > GP_DEADZONE ? gp.axes[3] : 0;
   input.lookDX += rx * 0.05;
   input.lookDY += ry * 0.05;
 
-  // triggers
-  input.brake = gp.buttons[6] && gp.buttons[6].value > 0.3;   // LT
+  gpState.brake = !!(gp.buttons[4] && gp.buttons[4].pressed);   // LB handbrake
+  gpState.nitro = !!(gp.buttons[5] && gp.buttons[5].pressed);   // RB nitro
 
   // buttons (edge detect)
   for (const [idx, action] of Object.entries(GP_MAP)) {
@@ -224,16 +229,20 @@ function pollGamepad() {
 }
 
 // ---------- Keyboard -> unified input (used by main.js) ----------
+// Keyboard wins when pressed; otherwise the gamepad (if any) drives.
 function keyboardToInput(keysMap) {
+  const kbNitro = !!(keysMap['ShiftLeft'] || keysMap['ShiftRight']);
+  const touchNitro = heldButtons.has('nitro'), touchBrake = heldButtons.has('brake');
+  input.nitro = kbNitro || touchNitro || gpState.nitro;
+  input.brake = !!keysMap['Space'] || touchBrake || gpState.brake;
   if (joyTouchId !== null) return;
   let mx = 0, mz = 0;
-  if (keysMap['KeyA']) mx += 1;
-  if (keysMap['KeyD']) mx -= 1;
-  if (keysMap['KeyW']) mz += 1;
-  if (keysMap['KeyS']) mz -= 1;
-  input.moveX = mx;
-  input.moveZ = mz;
-  input.brake = !!keysMap['Space'];
+  if (keysMap['KeyA'] || keysMap['ArrowLeft']) mx += 1;
+  if (keysMap['KeyD'] || keysMap['ArrowRight']) mx -= 1;
+  if (keysMap['KeyW'] || keysMap['ArrowUp']) mz += 1;
+  if (keysMap['KeyS'] || keysMap['ArrowDown']) mz -= 1;
+  input.moveX = mx || (gpState.active ? gpState.moveX : 0);
+  input.moveZ = mz || (gpState.active ? gpState.moveZ : 0);
 }
 
 // ---------- Per-frame bookkeeping ----------

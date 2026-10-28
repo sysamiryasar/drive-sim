@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Realm Drive — Driving Simulator</title>
+<title>Realm Drive</title>
+<meta name="description" content="Open-world browser driving game: stunts, races, deliveries, 40 hidden stars, achievements and a garage full of cars.">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0e14; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #fff; }
@@ -11,53 +12,125 @@
 
   /* ======================== HOME SCREEN ======================== */
   #homeScreen {
-    position: fixed; inset: 0; z-index: 100;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, #0a0e14 0%, #1a1e2a 40%, #0d1520 100%);
+    position: fixed; inset: 0; z-index: 100; pointer-events: none;
+    background: linear-gradient(90deg, rgba(8,11,17,0.94) 0, rgba(8,11,17,0.82) 440px, rgba(8,11,17,0) 66%);
   }
   #homeScreen.hidden { display: none; }
+  .home-panel {
+    pointer-events: auto; position: absolute; left: 0; top: 0; bottom: 0; width: 460px; max-width: 100%;
+    display: flex; flex-direction: column; padding: 20px 22px 16px; gap: 12px;
+  }
   .home-title {
-    font-size: 52px; font-weight: 800; letter-spacing: 4px; margin-bottom: 4px;
-    background: linear-gradient(135deg, #4fc3f7, #81d4fa, #b3e5fc);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    text-shadow: none;
+    font-size: 40px; font-weight: 900; letter-spacing: 4px; line-height: 1;
+    background: linear-gradient(135deg, #4fc3f7, #81d4fa, #ffd54a);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .home-sub {
-    font-size: 16px; color: #6b8299; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 40px;
+  .home-sub { font-size: 11px; color: #7f95ab; letter-spacing: 4px; text-transform: uppercase; margin-top: 6px; }
+  .profile {
+    display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
   }
-  .home-cards {
-    display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center;
+  .lvl {
+    width: 46px; height: 46px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+    background: conic-gradient(#ffd54a, #ff9f43, #ffd54a); font-size: 20px; font-weight: 900; color: #1a1300;
+    box-shadow: 0 0 16px rgba(255,213,74,0.35);
   }
+  .p-mid { flex: 1; min-width: 0; }
+  .p-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .p-row b { font-size: 20px; color: #9be7a2; font-variant-numeric: tabular-nums; }
+  .p-row span { font-size: 13px; color: #ffb36b; }
+  .xpbar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; margin: 5px 0 3px; }
+  .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #4fc3f7, #b388ff); border-radius: 4px; transition: width .4s; }
+  .p-sub, .muted { font-size: 11px; color: #7f95ab; }
+  .muted.small, .small { font-size: 10px; }
+  #recap {
+    display: none; font-size: 12px; color: #d6e2ee; padding: 8px 12px; border-radius: 10px;
+    background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.25);
+  }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button {
+    flex: 1; padding: 8px 4px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+    background: rgba(255,255,255,0.04); color: #9fb3c6; font: 600 12px inherit; font-family: inherit; position: relative;
+  }
+  .tabs button.on { background: rgba(79,195,247,0.18); color: #fff; border-color: rgba(79,195,247,0.5); }
+  .tabs .dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: #ff5252; position: absolute; top: 5px; right: 7px; box-shadow: 0 0 8px #ff5252; }
+  .tabs #achCount { color: #ffd54a; font-size: 10px; margin-left: 2px; }
+  .tab-body { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+  .car-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
   .car-card {
-    width: 130px; padding: 16px 12px; border-radius: 12px; cursor: pointer;
-    background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.08);
-    text-align: center; transition: all 0.2s;
+    padding: 8px 4px 7px; border-radius: 10px; cursor: pointer; text-align: center; font-family: inherit; color: inherit;
+    background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.07); transition: all .15s;
   }
-  .car-card:hover { border-color: rgba(79,195,247,0.5); background: rgba(79,195,247,0.08); transform: translateY(-3px); }
-  .car-card.selected { border-color: #4fc3f7; background: rgba(79,195,247,0.15); box-shadow: 0 0 20px rgba(79,195,247,0.2); }
-  .car-card .icon { font-size: 36px; margin-bottom: 6px; }
-  .car-card .name { font-size: 13px; font-weight: 600; color: #e0e8f0; }
-  .car-card .stats { font-size: 10px; color: #6b8299; margin-top: 4px; line-height: 1.5; }
+  .car-card:hover { border-color: rgba(79,195,247,0.45); transform: translateY(-2px); }
+  .car-card.selected { border-color: #4fc3f7; background: rgba(79,195,247,0.16); box-shadow: 0 0 18px rgba(79,195,247,0.2); }
+  .car-card.locked { opacity: 0.55; }
+  .car-card .icon { font-size: 26px; line-height: 1.1; }
+  .car-card .name { font-size: 11px; font-weight: 700; color: #e0e8f0; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .car-card .tag { font-size: 9px; font-weight: 700; color: #ffd54a; margin-top: 2px; letter-spacing: .5px; }
+  .car-card.owned .tag { color: #81c784; }
+  .car-detail { margin-top: 10px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+  .cd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .cd-name { font-size: 17px; font-weight: 800; }
+  .cd-perk { font-size: 11px; color: #9be7a2; margin-top: 2px; }
+  .cd-buy {
+    padding: 8px 12px; border-radius: 9px; border: none; cursor: pointer; font: 800 12px inherit; font-family: inherit; white-space: nowrap;
+    background: linear-gradient(135deg, #ffd54a, #ff9f43); color: #241500;
+  }
+  .cd-buy.poor { background: rgba(255,255,255,0.08); color: #8796a6; }
+  .cd-buy.locked { background: rgba(255,255,255,0.06); color: #9fb3c6; cursor: default; }
+  .cd-buy.small { width: 100%; margin-top: 8px; font-size: 11px; }
+  .cd-buy.wide { width: 100%; margin: 8px 0 4px; padding: 11px; font-size: 13px; }
+  .cd-note { font-size: 11px; color: #4fc3f7; margin-top: 6px; }
+  .sb { display: grid; grid-template-columns: 86px 1fr 62px; align-items: center; gap: 8px; font-size: 11px; color: #9fb3c6; margin: 3px 0; }
+  .sb b { color: #e0e8f0; text-align: right; font-variant-numeric: tabular-nums; }
+  .sb-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .sb-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4fc3f7, #66bb6a); }
+  .paint-title { font-size: 11px; color: #9fb3c6; margin: 10px 0 6px; }
+  .paint-title span { color: #fff; font-weight: 700; }
+  .paints { display: flex; flex-wrap: wrap; gap: 7px; }
+  .sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; position: relative; }
+  .sw.on { border-color: #fff; box-shadow: 0 0 0 2px #4fc3f7; }
+  .sw.lock::after { content: '🔒'; position: absolute; right: -6px; bottom: -6px; font-size: 10px; }
+  .sec-title { font-size: 12px; font-weight: 800; color: #e0e8f0; margin: 12px 0 7px; letter-spacing: .5px; }
+  .sec-title:first-child { margin-top: 2px; }
+  .streak { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .sd { text-align: center; padding: 6px 2px; border-radius: 8px; background: rgba(255,255,255,0.04); font-size: 9px; color: #7f95ab; border: 1px solid transparent; }
+  .sd b { display: block; font-size: 10px; color: #c8d6e3; margin-top: 2px; }
+  .sd.done { background: rgba(102,187,106,0.15); color: #81c784; }
+  .sd.today { border-color: #ffd54a; background: rgba(255,213,74,0.12); color: #ffd54a; animation: guidePulse 1.6s infinite; }
+  .ch { padding: 9px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); margin-bottom: 7px; }
+  .ch.done { background: rgba(102,187,106,0.12); }
+  .ch-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; gap: 8px; }
+  .ch-top b { color: #9be7a2; }
+  .ach-grid { display: flex; flex-direction: column; gap: 6px; }
+  .ach { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.03); opacity: 0.75; }
+  .ach.done { opacity: 1; background: rgba(255,213,74,0.08); border: 1px solid rgba(255,213,74,0.2); }
+  .ach-i { font-size: 22px; width: 30px; text-align: center; }
+  .ach-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+  .ach-t span { font-size: 10px; color: #8ea2b6; }
+  .ach-t .sb-bar { margin-top: 3px; }
+  .ach-r { font-size: 11px; color: #9be7a2; font-weight: 700; }
+  .rec { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .rec b { color: #e0e8f0; }
+  .credits { margin-top: 14px; line-height: 1.5; }
   .home-start {
-    padding: 14px 48px; border-radius: 10px; border: none; cursor: pointer;
-    font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    padding: 15px; border-radius: 12px; border: none; cursor: pointer; width: 100%;
+    font: 800 16px inherit; font-family: inherit; letter-spacing: 2px; text-transform: uppercase;
     background: linear-gradient(135deg, #4fc3f7, #0288d1); color: #fff;
-    transition: all 0.2s; box-shadow: 0 4px 20px rgba(79,195,247,0.3);
+    transition: all 0.2s; box-shadow: 0 4px 22px rgba(79,195,247,0.35);
   }
-  .home-start:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(79,195,247,0.45); }
+  .home-start:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(79,195,247,0.5); }
+  .home-start:disabled { background: rgba(255,255,255,0.1); color: #9fb3c6; box-shadow: none; cursor: default; letter-spacing: 1px; font-size: 13px; }
   .home-controls {
-    margin-top: 28px; padding: 16px 24px; border-radius: 10px;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    font-size: 12px; color: #7a92a8; line-height: 1.8; max-width: 580px; text-align: center;
+    position: absolute; right: 16px; bottom: 14px; pointer-events: none;
+    font-size: 11px; color: #c6d4e1; text-shadow: 0 1px 3px #000; text-align: right; line-height: 1.9;
   }
-  .home-controls b { color: #b0c4d8; }
-  .home-controls .row { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
-  .home-controls .item { display: flex; align-items: center; gap: 6px; }
-  .home-controls kbd {
-    display: inline-block; padding: 2px 7px; border-radius: 4px;
-    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
-    font-size: 11px; font-family: monospace; color: #c0d0e0;
+  .home-controls kbd, #pauseOverlay kbd {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.2);
+    font-size: 10px; font-family: monospace; color: #e0e8f0;
   }
+  body.touch-device .home-controls { display: none; }
 
   /* ======================== DASHBOARD / HUD ======================== */
   #dashboard {
@@ -126,7 +199,7 @@
   /* ======================== HEALTH BAR ======================== */
   #healthBar {
     position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
-    display: none; width: 220px; height: 16px; border-radius: 8px;
+    display: none; width: 220px; height: 16px; border-radius: 8px; pointer-events: none;
     background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
     overflow: hidden;
   }
@@ -144,7 +217,7 @@
 
   /* ======================== ALTITUDE ======================== */
   #altitudeMeter {
-    position: fixed; top: 38px; left: 50%; transform: translateX(-50%); z-index: 10;
+    position: fixed; top: 116px; left: 50%; transform: translateX(-50%); z-index: 10;
     display: none; font-size: 13px; font-weight: 600; color: #4fc3f7;
     background: rgba(0,0,0,0.6); border: 1px solid rgba(79,195,247,0.3);
     border-radius: 6px; padding: 3px 12px;
@@ -175,14 +248,14 @@
   /* ======================== MINIMAP ======================== */
   #minimap {
     position: fixed; top: 14px; right: 14px; z-index: 10; display: none;
-    border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 18px rgba(0,0,0,0.4);
     background: rgba(8, 12, 22, 0.85);
   }
   #minimap.active { display: block; }
 
   /* ======================== TOAST ======================== */
   #toast {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 11;
+    position: fixed; bottom: 190px; left: 50%; transform: translateX(-50%); z-index: 11;
     font-size: 13px; color: #fff;
     background: rgba(8, 12, 22, 0.88); border-radius: 8px; padding: 8px 18px;
     opacity: 0; transition: opacity 0.4s; pointer-events: none;
@@ -237,8 +310,114 @@
     background: rgba(10,14,20,0.85); backdrop-filter: blur(4px);
   }
   #pauseOverlay.active { display: flex; }
-  #pauseOverlay h2 { font-size: 32px; font-weight: 700; margin-bottom: 16px; letter-spacing: 2px; }
-  #pauseOverlay .hint { font-size: 13px; color: #7a92a8; }
+  #pauseOverlay h2 { font-size: 32px; font-weight: 700; margin-bottom: 12px; letter-spacing: 2px; }
+  #pauseOverlay .hint { font-size: 12px; color: #9fb3c6; line-height: 2; text-align: center; max-width: 560px; margin-top: 18px; }
+  #pauseStats { font-size: 13px; color: #c0d0e0; margin-bottom: 16px; }
+  #pauseStats b { color: #9be7a2; }
+  .pause-btns { display: flex; gap: 12px; }
+  .pause-btns button {
+    padding: 12px 28px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;
+    font: 700 14px inherit; font-family: inherit; color: #fff; background: rgba(255,255,255,0.08);
+  }
+  .pause-btns button.primary { background: linear-gradient(135deg, #4fc3f7, #0288d1); border: none; }
+
+  /* ======================== PROFILE HUD ======================== */
+  #hudProfile {
+    position: fixed; top: 128px; left: 14px; z-index: 10; display: none; min-width: 180px;
+    background: rgba(8,12,22,0.72); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 7px 12px;
+    font-size: 12px; color: #c0d0e0; backdrop-filter: blur(6px);
+  }
+  #hudProfile.active { display: block; }
+  #hudProfile .row { display: flex; justify-content: space-between; align-items: center; }
+  #hudProfile b { color: #9be7a2; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #hudProfile .lv { color: #ffd54a; font-weight: 800; }
+  #hudProfile .xpbar { height: 4px; margin: 5px 0 0; }
+
+  /* ======================== SCORE POPUPS / BANNERS ======================== */
+  #popups {
+    position: fixed; right: 200px; top: 34%; z-index: 12; pointer-events: none;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  }
+  .popup {
+    font-size: 15px; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.85); white-space: nowrap;
+    animation: popIn 2.2s ease-out forwards; letter-spacing: .5px;
+  }
+  .popup.trick { color: #ffd54a; }
+  .popup.cash { color: #9be7a2; font-size: 13px; }
+  .popup.lost { color: #ff6b6b; }
+  .popup.info { color: #81d4fa; }
+  @keyframes popIn { 0% { opacity: 0; transform: translateX(30px) scale(.8); } 10% { opacity: 1; transform: translateX(0) scale(1.08); }
+    18% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+  #banner {
+    position: fixed; top: 22%; left: 50%; transform: translate(-50%, -10px); z-index: 13; pointer-events: none;
+    text-align: center; opacity: 0; transition: opacity .3s, transform .3s;
+    padding: 12px 34px; border-radius: 14px; background: rgba(8,12,22,0.82); border: 1px solid rgba(79,195,247,0.4);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  #banner.show { opacity: 1; transform: translate(-50%, 0); }
+  #banner .b-title { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: #4fc3f7; }
+  #banner .b-sub { font-size: 13px; color: #d6e2ee; margin-top: 3px; }
+  #banner.gold, #banner.level { border-color: rgba(255,213,74,0.6); }
+  #banner.gold .b-title, #banner.level .b-title { color: #ffd54a; text-shadow: 0 0 24px rgba(255,213,74,0.5); }
+  #banner.daily .b-title { color: #9be7a2; }
+  #banner.fail .b-title { color: #ff6b6b; }
+  #achToast {
+    position: fixed; top: 200px; right: 14px; z-index: 14; pointer-events: none;
+    display: flex; gap: 12px; align-items: center; width: 290px; padding: 12px 14px; border-radius: 14px;
+    background: linear-gradient(135deg, rgba(40,30,8,0.95), rgba(12,14,22,0.95)); border: 1px solid rgba(255,213,74,0.55);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 24px rgba(255,213,74,0.15);
+    transform: translateX(330px); transition: transform .45s cubic-bezier(.2,1.3,.4,1);
+  }
+  #achToast.show { transform: translateX(0); }
+  .ach-icon { font-size: 34px; }
+  .ach-kicker { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #ffd54a; }
+  .ach-name { font-size: 15px; font-weight: 800; }
+  .ach-desc { font-size: 11px; color: #b8c6d4; }
+  .ach-desc b { color: #9be7a2; }
+
+  /* ======================== COMBO METER ======================== */
+  #combo {
+    position: fixed; top: 64px; left: 50%; transform: translateX(-50%) scale(.9); z-index: 11; pointer-events: none;
+    text-align: center; opacity: 0; transition: opacity .2s, transform .2s; min-width: 180px;
+  }
+  #combo.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  #combo .c-label { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ffd54a; text-shadow: 0 1px 4px #000; }
+  #combo .c-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+  #combo .c-pts { font-size: 30px; font-weight: 900; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.8); font-variant-numeric: tabular-nums; }
+  #combo .c-mult { font-size: 20px; font-weight: 900; color: #ff9f43; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+  #combo .c-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.15); margin-top: 3px; overflow: hidden; }
+  #combo .c-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd54a, #ff9f43); }
+
+  /* ======================== MISSION PANEL ======================== */
+  #mission {
+    position: fixed; top: 200px; left: 14px; z-index: 10; display: none; min-width: 200px; max-width: 260px;
+    background: rgba(8,12,22,0.8); border: 1px solid rgba(79,195,247,0.35); border-radius: 12px; padding: 10px 14px;
+    font-size: 12px; color: #c0d0e0;
+  }
+  #mission.show { display: block; }
+  #mission .m-title { font-weight: 800; color: #fff; font-size: 13px; }
+  #mission .m-big { font-size: 30px; font-weight: 900; color: #4fc3f7; font-variant-numeric: tabular-nums; }
+  #mission .m-big.warn { color: #ff6b6b; animation: bustedPulse .6s infinite; }
+  #mission .m-row { margin: 2px 0; }
+  #mission .m-row b { color: #ffd54a; }
+  #mission .m-hint { font-size: 10px; color: #7f95ab; margin-top: 4px; }
+  #objArrow {
+    position: fixed; top: 36px; left: 50%; transform: translateX(-50%); z-index: 10; display: none; pointer-events: none;
+    text-align: center;
+  }
+  #objArrow.show { display: block; }
+  #objArrow .a-ico {
+    width: 0; height: 0; margin: 0 auto; border-left: 13px solid transparent; border-right: 13px solid transparent;
+    border-bottom: 26px solid #4fc3f7; filter: drop-shadow(0 0 6px rgba(79,195,247,0.8));
+  }
+  #objArrow .a-dist { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; margin-top: 2px; }
+  #countdown {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 15; pointer-events: none;
+    font-size: 110px; font-weight: 900; color: #fff; opacity: 0; text-shadow: 0 0 40px rgba(79,195,247,0.8);
+  }
+  #countdown.pop { animation: cdPop .9s ease-out forwards; }
+  @keyframes cdPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(2); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
 
   /* ======================== TOUCH CONTROLS ======================== */
   #touch-ui { display: none; }
@@ -277,68 +456,113 @@
   #tb-brake { background: rgba(255,80,40,0.15); border-color: rgba(255,80,60,0.4); }
   #tb-camera { background: rgba(79,195,247,0.1); }
   #tb-horn { background: rgba(255,200,40,0.15); }
+  #tb-nitro { background: rgba(79,195,247,0.25); border-color: #4fc3f7; font-size: 13px; }
   #tb-fullscreen { width: 40px; height: 40px; font-size: 20px; opacity: 0.5; }
 
-  @media (max-width: 600px) {
-    .home-title { font-size: 28px; }
-    .home-sub { font-size: 11px; letter-spacing: 3px; }
-    .car-card { width: 100px; padding: 10px 8px; }
-    .car-card .icon { font-size: 26px; }
-    .car-card .name { font-size: 11px; }
-    .home-controls { font-size: 10px; padding: 10px 14px; }
+  @media (max-width: 700px) {
+    #homeScreen { background: linear-gradient(0deg, rgba(8,11,17,0.96) 0, rgba(8,11,17,0.9) 58%, rgba(8,11,17,0) 72%); }
+    .home-panel { top: 34vh; width: 100%; padding: 12px 14px 12px; gap: 9px; }
+    .home-title { font-size: 26px; }
+    .home-sub { display: none; }
+    .car-grid { grid-template-columns: repeat(4, 1fr); }
     .dash-gauge { width: 90px; height: 90px; }
     .dash-gauge canvas { width: 90px; height: 90px; }
     .dash-gauge-label { font-size: 20px; bottom: 16px; }
+    #dashboard { height: 110px; }
+    #hudOverlay { display: none !important; }
+    #hudProfile { top: 14px; min-width: 140px; }
+    #mission { top: 140px; }
+    #minimap { width: 120px; height: 120px; }
+    #popups { right: 16px; top: 150px; }
+    #achToast { top: 140px; width: 250px; }
+    #banner .b-title { font-size: 20px; }
+    #trafficLightHud { bottom: 120px; }
+    #toast { bottom: 240px; }
+    #healthBar { top: 66px; left: 14px; transform: none; width: 140px; }
+    #guidance { white-space: normal; width: 86vw; font-size: 14px; padding: 12px 16px; }
+    #achToast { right: 8px; }
   }
+  body.touch-device #dashboard { display: none !important; }
+  body.touch-device #objArrow { top: 62px; }
+  body.touch-device #combo { top: 96px; }
+  #mSpeed { display: none; }
+  body.touch-device #mSpeed.active {
+    display: block; position: fixed; top: 88px; left: 14px; z-index: 10; pointer-events: none;
+    font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.8); font-variant-numeric: tabular-nums;
+  }
+  #mSpeed small { font-size: 11px; color: #9fb3c6; font-weight: 600; }
+  #mSpeed .xpbar { width: 140px; height: 5px; margin-top: 2px; }
+  #mSpeed .xpbar i { background: linear-gradient(90deg, #4fc3f7, #66bb6a); }
 </style>
 </head>
 <body>
 
-<!-- ======================== HOME SCREEN ======================== -->
+<!-- ======================== HOME SCREEN / GARAGE ======================== -->
 <div id="homeScreen">
-  <div class="home-title">REALM DRIVE</div>
-  <div class="home-sub">Driving Simulator</div>
-  <div class="home-cards" id="carCards"></div>
-  <button class="home-start" id="startBtn">START DRIVING</button>
+  <div class="home-panel">
+    <div>
+      <div class="home-title">REALM DRIVE</div>
+      <div class="home-sub">Open-world stunts · races · deliveries</div>
+    </div>
+    <div class="profile">
+      <div class="lvl" id="pLevel" title="Player level">1</div>
+      <div class="p-mid">
+        <div class="p-row"><b id="pCash">$500</b><span id="pStreak">🔥 1 day</span></div>
+        <div class="xpbar"><i id="pXp"></i></div>
+        <div class="p-sub" id="pXpText">0 / 400 XP</div>
+      </div>
+    </div>
+    <div id="recap"></div>
+    <div class="tabs">
+      <button data-tab="garage" class="on">🚗 Garage</button>
+      <button data-tab="daily">📅 Daily<span class="dot" id="dailyDot"></span></button>
+      <button data-tab="ach">🏆 <span id="achCount"></span></button>
+      <button data-tab="records">📊 Records</button>
+    </div>
+    <div class="tab-body" id="tab-garage">
+      <div class="car-grid" id="carCards"></div>
+      <div class="car-detail" id="carDetail"></div>
+    </div>
+    <div class="tab-body" id="tab-daily" hidden></div>
+    <div class="tab-body" id="tab-ach" hidden></div>
+    <div class="tab-body" id="tab-records" hidden></div>
+    <button class="home-start" id="startBtn" disabled>Loading 3D models…</button>
+  </div>
   <div class="home-controls">
-    <div class="row">
-      <div class="item"><kbd>W</kbd> Accelerate</div>
-      <div class="item"><kbd>S</kbd> Brake / Reverse</div>
-      <div class="item"><kbd>A</kbd><kbd>D</kbd> Steer</div>
-      <div class="item"><kbd>Space</kbd> Handbrake</div>
-    </div>
-    <div class="row" style="margin-top:6px">
-      <div class="item"><kbd>C</kbd> Camera</div>
-      <div class="item"><kbd>F</kbd> Headlights</div>
-      <div class="item"><kbd>H</kbd> Horn</div>
-      <div class="item"><kbd>R</kbd> Reset</div>
-      <div class="item"><kbd>M</kbd> Sound</div>
-    </div>
-    <div class="row" style="margin-top:6px">
-      <div class="item"><kbd>Esc</kbd> Pause</div>
-      <div class="item"><kbd>Shift</kbd> Nitro</div>
-      <div class="item"><kbd>B</kbd> Build Mode</div>
-      <div class="item"><kbd>P</kbd> Enter Plane</div>
-    </div>
+    <kbd>W</kbd><kbd>S</kbd> drive · <kbd>A</kbd><kbd>D</kbd> steer · <kbd>Space</kbd> handbrake drift · <kbd>Shift</kbd> nitro<br>
+    <kbd>H</kbd> horn / siren · <kbd>C</kbd> camera · <kbd>F</kbd> lights · <kbd>R</kbd> reset · <kbd>P</kbd> plane · <kbd>B</kbd> build · <kbd>Esc</kbd> pause<br>
+    🏁 races · 📦 delivery jobs · 🏗️ stunt ramps · ⭐ 40 hidden stars · 💰 cash bags · 📸 speed traps
   </div>
 </div>
 
 <!-- ======================== PAUSE ======================== -->
 <div id="pauseOverlay">
   <h2>PAUSED</h2>
-  <div class="hint">Press <kbd style="padding:3px 8px;border-radius:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);font-family:monospace">Esc</kbd> to resume</div>
+  <div id="pauseStats"></div>
+  <div class="pause-btns">
+    <button class="primary" id="resumeBtn">Resume</button>
+    <button id="garageBtn">🚗 Garage &amp; Shop</button>
+  </div>
+  <div class="hint">
+    <kbd>W</kbd><kbd>S</kbd> drive · <kbd>A</kbd><kbd>D</kbd> steer · <kbd>Space</kbd> drift · <kbd>Shift</kbd> nitro · <kbd>H</kbd> horn · <kbd>C</kbd> camera · <kbd>R</kbd> reset<br>
+    Chain drifts, near misses, jumps and smashes within 4 seconds to grow your combo multiplier — crashing loses it!
+  </div>
 </div>
 
 <!-- ======================== HUD OVERLAY ======================== -->
 <div id="hudOverlay">
-  <div class="row"><span>Zone</span><b id="hudZone">City Center</b></div>
+  <div class="row"><span>Zone</span><b id="hudZone">City</b></div>
   <div class="row"><span>Weather</span><b id="hudWeather">Clear</b></div>
   <div class="row"><span>Time</span><b id="hudClock">09:00</b></div>
   <div class="row"><span>Biome</span><b id="hudBiome">Urban</b></div>
 </div>
+<div id="hudProfile">
+  <div class="row"><span class="lv">LVL <span id="hudLevel">1</span></span><b id="hudCash">$0</b></div>
+  <div class="xpbar"><i id="hudXpFill"></i></div>
+</div>
 
 <!-- ======================== HEALTH BAR ======================== -->
-<div id="healthBar" class="active">
+<div id="healthBar">
   <div id="healthFill" style="width:100%"></div>
   <div id="healthLabel">100 HP</div>
 </div>
@@ -370,15 +594,15 @@
   <div class="dash-panel" style="gap:6px;">
     <div class="dash-indicators">
       <div class="dash-ind" id="indLeft" title="Left Turn Signal"></div>
-      <div class="dash-ind" id="indHigh" title="High Beam"></div>
+      <div class="dash-ind" id="indHigh" title="Headlights"></div>
       <div class="dash-ind" id="indRight" title="Right Turn Signal"></div>
     </div>
     <div class="dash-info">
       <div>Gear: <span class="val" id="dashGear">N</span></div>
       <div>RPM: <span class="val" id="dashRPM">0</span></div>
     </div>
-    <div class="dash-fuel">
-      <span style="font-size:12px;">⛽</span>
+    <div class="dash-fuel" title="Nitro — refills over time and with tricks">
+      <span style="font-size:12px;">🔥</span>
       <div class="dash-fuel-bar"><div class="dash-fuel-fill" id="fuelFill" style="width:100%"></div></div>
       <span class="val" id="fuelPct" style="font-size:11px;">100%</span>
     </div>
@@ -394,6 +618,8 @@
   </div>
 </div>
 
+<div id="mSpeed"><span id="mSpeedNum">0</span> <small>km/h · gear <span id="mGear">N</span></small><div class="xpbar"><i id="mNitro"></i></div></div>
+
 <!-- ======================== MINIMAP ======================== -->
 <canvas id="minimap" width="170" height="170"></canvas>
 
@@ -408,6 +634,19 @@
   <span style="margin-left:8px;" id="tlDist"></span>
 </div>
 
+<!-- ======================== ARCADE HUD ======================== -->
+<div id="combo">
+  <div class="c-label">DRIFT</div>
+  <div class="c-row"><span class="c-pts">0</span><span class="c-mult">x1</span></div>
+  <div class="c-bar"><i></i></div>
+</div>
+<div id="mission"></div>
+<div id="objArrow"><div class="a-ico"></div><div class="a-dist"></div></div>
+<div id="countdown"></div>
+<div id="popups"></div>
+<div id="banner"></div>
+<div id="achToast"></div>
+
 <!-- ======================== GUIDANCE ======================== -->
 <div id="guidance"></div>
 
@@ -420,9 +659,11 @@
   <div id="look-area"></div>
   <div id="touch-btns">
     <div class="tbtn" id="tb-brake" data-action="brake" data-hold="true">B</div>
+    <div class="tbtn" id="tb-nitro" data-action="nitro" data-hold="true">N₂O</div>
     <div class="tbtn" id="tb-horn" data-action="horn" data-hold="false">H</div>
     <div class="tbtn" id="tb-camera" data-action="camera" data-hold="false">C</div>
     <div class="tbtn" id="tb-reset" data-action="reset" data-hold="false">R</div>
+    <div class="tbtn" id="tb-pause" data-action="pause" data-hold="false">II</div>
     <div class="tbtn" id="tb-fullscreen" data-action="fullscreen" data-hold="false">⛶</div>
   </div>
 </div>
@@ -430,7 +671,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="world.js"></script>
 <script src="entities.js"></script>
+<script src="progress.js"></script>
+<script src="activities.js"></script>
 <script src="input.js"></script>
+<script src="garage.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
